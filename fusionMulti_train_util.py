@@ -32,8 +32,8 @@ def shuffle_data(
     return training_sender_emb, training_rcv_emb, training_prediction 
     
 def data_to_tensor(
-    training_set, #: list()
-    remove_set=None
+    training_set,
+    test_fold_patient_list
     ):
     """
     training_set = list of [sender_emb, rcvr_emb, pred]
@@ -56,5 +56,5 @@ def data_to_tensor(
     # convert to tensor
     training_set = torch.tensor(training_set_matrix, dtype=torch.float)
 
-    return training_set, add_set
+    return training_set, validation_set
 

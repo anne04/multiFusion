@@ -13,8 +13,12 @@ class fusionMulti(torch.nn.Module):
                 channel_count_hbv:int = channel_count_hbv,
                 channel_count_t2w:int = channel_count_t2w,
 
-                filter_count_layer1:int = 512, #512, 
-                filter_count_layer2:int = 256, #256, 
+                filter_count_layer1:int = 4, 
+                filter_count_layer2:int = 8,  
+
+                kernel_size1:int = 4,
+                kernel_size2:int = 2,
+
 
                 adc_X: int,
                 adc_Y: int,
@@ -26,7 +30,7 @@ class fusionMulti(torch.nn.Module):
                 t2w_Y: int,
 
 
-                hidden_size_predictor_layer1:int = 256*2, #256*2, 
+                hidden_size_predictor_layer1:int = 256,
                 hidden_size_predictor_layer2:int = 128 
                 ):
         """
@@ -40,10 +44,10 @@ class fusionMulti(torch.nn.Module):
 
         # Branch: adc --> should be replaced by the pretrained feature extractor
         self.adc_feature_layer = nn.Sequential(
-            nn.Conv2d(in_channels = channel_count_adc, out_channels = filter_count_layer1, kernel_size=3, padding=1)
+            nn.Conv2d(in_channels = channel_count_adc, out_channels = filter_count_layer1, kernel_size1, padding=1)
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size=3, padding=1)
+            nn.Conv2d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size2, padding=1)
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
@@ -52,11 +56,11 @@ class fusionMulti(torch.nn.Module):
 
         # Branch: hbv --> is there any pretrained model for hbv type?
         self.hbv_feature_layer = nn.Sequential(
-            nn.Conv2d(in_channels = channel_count_hbv, out_channels = filter_count_layer1, kernel_size=3, padding=1)
+            nn.Conv2d(in_channels = channel_count_hbv, out_channels = filter_count_layer1, kernel_size1, padding=1)
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
-            nn.Conv2d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size=3, padding=1)
+            nn.Conv2d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size2, padding=1)
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
@@ -65,11 +69,11 @@ class fusionMulti(torch.nn.Module):
 
         # Branch: t2w --> should be replaced by the pretrained feature extractor
         self.t2w_feature_layer = nn.Sequential(
-            nn.Conv2d(in_channels = channel_count_t2w, out_channels = filter_count_layer1, kernel_size=3, padding=1)
+            nn.Conv2d(in_channels = channel_count_t2w, out_channels = filter_count_layer1, kernel_size1, padding=1)
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
-            nn.Conv2d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size=3, padding=1)
+            nn.Conv2d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size2, padding=1)
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
