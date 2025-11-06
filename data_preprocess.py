@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 import pandas as pd
 import pickle
+import gzip
 
 # USER INPUT
 path_dataset_mpMRI = 'Multimodal-Quiz/radiology/mpMRI/'
@@ -104,12 +105,4 @@ df.to_csv('patient_vs_clinical_data.csv', index=False)
 ## now pack the training dataset and save as pickle object
 with gzip.open('training_data_multiFusion.pkl', 'wb') as fp:  
     pickle.dump([patient_vs_modality_vs_image, patient_vs_BCR], fp)
-
-
-# Print shape and spacing info
-print("Shape:", image_array.shape)
-print("Spacing:", image.GetSpacing())
-print("Origin:", image.GetOrigin())
-print("Direction:", image.GetDirection())
-
 
