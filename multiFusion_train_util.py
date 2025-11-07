@@ -91,7 +91,7 @@ def data_to_tensor(
     metadata_hbv,
     metadata_t2w,
     patient_vs_modality_vs_image, 
-    patient_vs_BCR,
+    patient_vs_timeBCR,
     test_fold_patient_list,
     validation_percent = 10
     ):
@@ -127,7 +127,7 @@ def data_to_tensor(
         image_array_t2w = patient_vs_modality_vs_image[patient_id]['t2w']
         image_array_t2w = scale_image(image_array_t2w)
 
-        prediction = patient_vs_BCR[patient_id]
+        prediction = patient_vs_timeBCR[patient_id]
 
 
         if int(patient_id) in test_fold_patient_list:
