@@ -20,13 +20,14 @@ if __name__ == "__main__":
     parser.add_argument( '--fold_count', type=int, default=5, help='Provide the total fold')
     parser.add_argument( '--kfold_info_file', type=str, default="Multimodal-Quiz/data_split_5fold.csv", help='Provide the file name with k fold info')
     #=========================== default is set ======================================
-    parser.add_argument( '--num_epoch', type=int, default=5000, help='Number of epochs or iterations for model training')
+    parser.add_argument( '--num_epoch', type=int, default=2000, help='Number of epochs or iterations for model training')
     parser.add_argument( '--model_path', type=str, default='model/', help='Path to save the model state') # We do not need this for output generation  
     parser.add_argument( '--dropout', type=float, default=0)
     parser.add_argument( '--batch_size', type=int, default=10)
-    parser.add_argument( '--lr_rate', type=float, default=0.0001)
+    parser.add_argument( '--lr_rate', type=float, default=0.001)
     parser.add_argument( '--manual_seed', type=str, default='no', help='Use it for reproducible result')
     parser.add_argument( '--seed', type=int, help='Use it for reproducible result')
+    parser.add_argument('--wandb_project_name', type=str, default='multimodal_fusion')
     #=========================== optional ======================================
     parser.add_argument( '--load', type=int, default=0, help='Set 1 to load a previously saved model state')  
     parser.add_argument( '--load_model_name', type=str, default='None' , help='Provide the model name that you want to reload')
@@ -51,7 +52,7 @@ if __name__ == "__main__":
     print(device)
     ##########################################################################################
     with gzip.open(args.training_data, 'rb') as fp:  
-        patient_vs_modality_vs_image, patient_vs_BCR = pickle.load(fp)
+        patient_vs_modality_vs_image, patient_vs_timeBCR, patient_vs_BCR = pickle.load(fp)
 
     print('training data load done')
 
@@ -82,28 +83,46 @@ if __name__ == "__main__":
     In [10]: metadata_t2w
     Out[10]: [25, 640, 640] --> after first maxpool2d: [25, 320, 320] --> after 2nd maxpool2d [25, 160, 160]   
     '''
-
+    fold_patient_BCR_timeBCR_prediction = defaultdict(list)
+    fold_vs_c_index = defaultdict(list)
+    print_model_flag = 1
     #for k in range(0, args.fold_count):
     k=0
     print('*** Running fold k = %d ***'%k)
-    # want to saves model for each fold separately
-    args.model_name = args.model_path + args.model_name + '_fold' + str(k) 
-    
     test_fold_patient_list = fold_vs_test_patient_list[k]
-    training_tensor, validation_tensor, test_tensor = data_to_tensor(metadata_adc, metadata_hbv, metadata_t2w,
+    training_tensor, validation_tensor, test_tensor, patient_order = data_to_tensor(metadata_adc, metadata_hbv, metadata_t2w,
                                                                     patient_vs_modality_vs_image, 
-                                                                    patient_vs_BCR, 
-                                                                    test_fold_patient_list)
+                                                                    patient_vs_timeBCR, 
+                                                                    test_fold_patient_list
+                                                                    )
 
     # train the model using train and validation set
+    # want to saves model for each fold separately
+    args.model_name = args.model_path + args.model_name + '_fold' + str(k) 
+    wandb_project_name = args.wandb_project_name 
     train_multiFusion(args, metadata_adc, metadata_hbv, metadata_t2w,
                         training_tensor, validation_tensor, epoch = args.num_epoch,
-                        batch_size = 10, learning_rate=args.lr_rate)
+                        batch_size = 10, learning_rate=args.lr_rate, print_model_flag = print_model_flag, 
+                        wandb_project_name=wandb_project_name, fold=k)
 
-    confusion_matrix = test_multiFusion(args.model_name, test_tensor)
+    print_model_flag = 0
+    print('*** testing now ***')
+    c_index, prediction_order = test_multiFusion(args.model_name, test_tensor, k)
+    # patient_order and prediction_order has same order
+    for i in range(0, len(prediction_order)):
+        patient_id = patient_order[i]
+        fold_patient_BCR_timeBCR_prediction['fold'].append(k)
+        fold_patient_BCR_timeBCR_prediction['patient_id'].append(patient_id)
+        fold_patient_BCR_timeBCR_prediction['BCR(preprocessed)'].append(patient_vs_BCR[patient_id])
+        fold_patient_BCR_timeBCR_prediction['original_time_of_BCR (100 means BCR=0)'].append(patient_vs_timeBCR[patient_id])
+        fold_patient_BCR_timeBCR_prediction['predicted_BCR'].append(prediction_order[i])
 
 
-
-
+    fold_vs_c_index['fold'].append(k)
+    fold_vs_c_index['c-index'].append(c_index)
 
     
+
+
+
+      
