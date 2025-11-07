@@ -55,14 +55,18 @@ for patient_id in patient_id_list:
 
 
 # print to see the min max range for each modality
+'''
 for modality in modality_vs_valueRange:
     print('for modality '+ modality + ' intensity ranges from ' + str(np.min(modality_vs_valueRange[modality]))
           + ' to ' + str(np.max(modality_vs_valueRange[modality])))
 
+'''
 # how many entries in prostate_tw2 are 1 for each patient
+'''
 for patient_id in patient_vs_modality_vs_image:
     count_one = np.sum(patient_vs_modality_vs_image[patient_id]['prost_t2w'])
     print(patient_id + ' has ' + str(count_one) + ' entries as 1')
+'''
 
 ######################### clinical ################################################
 # get the max number of features first
@@ -79,8 +83,7 @@ clinical_features = list(clinical_features.keys())
 
 # Now get the clinical value
 patient_vs_clinical_data = defaultdict(list) # patient_vs_clinical_data[patient_id] = vector having clinical info 
-# get patient vs BCR - for model training 
-patient_vs_BCR = dict()
+patient_vs_feature_vs_value = defaultdict(dict)
 for patient_id in patient_id_list:
     json_file_path = path_dataset_clinical + '/' + patient_id + '.json'
     with open(json_file_path, 'r') as f:
@@ -89,20 +92,29 @@ for patient_id in patient_id_list:
     #print('patient id ' + patient_id + 'has keys ' + str(len(list(data.keys()))))
     patient_vs_clinical_data['patient_id'].append(patient_id)
     for key in clinical_features:
-        if key not in data:
+        if key not in data: # handle missing value
             patient_vs_clinical_data[key].append(-1)
+            patient_vs_feature_vs_value[patient_id][key] = -1
         else:
             patient_vs_clinical_data[key].append(data[key])
+            patient_vs_feature_vs_value[patient_id][key] = data[key]
 
-        if key == 'BCR':
-            print(data[key])
-            patient_vs_BCR[patient_id] = data[key]
+            
+# get patient vs time to BCR - for model training 
+patient_vs_timeBCR = dict()
+for patient_id in patient_id_list:
+    if int(float(patient_vs_feature_vs_value[patient_id]['BCR']))==0: # BCR did not happen
+        patient_vs_timeBCR[patient_id] = 100.0 # some high value to indicate long time to BCR
+
+    else: # record the actual time of BCR
+        patient_vs_timeBCR[patient_id] = float(patient_vs_feature_vs_value[patient_id]['time_to_follow-up/BCR'])
+
 
 # convert it to csv file for future reference
 df = pd.DataFrame(patient_vs_clinical_data)
-df.to_csv('patient_vs_clinical_data.csv', index=False)
+df.to_csv('Multimodal-Quiz/patient_vs_clinical_data.csv', index=False)
 
 ## now pack the training dataset and save as pickle object
-with gzip.open('training_data_multiFusion.pkl', 'wb') as fp:  
-    pickle.dump([patient_vs_modality_vs_image, patient_vs_BCR], fp)
+with gzip.open('Multimodal-Quiz/training_data_multiFusion.pkl', 'wb') as fp:  
+    pickle.dump([patient_vs_modality_vs_image, patient_vs_timeBCR], fp)
 
