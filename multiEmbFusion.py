@@ -334,7 +334,7 @@ def train_multiFusion(
     fold = 0
     ):
     """
-    This model is called to run the training.
+    This function is called to run the training.
     Args:
         args (argparse.parser): This is user arguments.
         metadata_adc (list): List of channel, height, width information for ADC slides,
