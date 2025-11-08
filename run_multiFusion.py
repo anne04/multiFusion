@@ -144,10 +144,10 @@ if __name__ == "__main__":
 
     ###########
     case_by_case_report = pd.DataFrame(fold_patient_BCR_timeBCR_prediction)
-    case_by_case_report.to_csv(args.output_path + '/case_by_case_report.csv', index=False)
+    case_by_case_report.to_csv(args.output_path + '/'+ args.model_name +'_case_by_case_report.csv', index=False)
 
     fold_vs_c_index_report = pd.DataFrame(fold_vs_c_index)
-    fold_vs_c_index_report.to_csv(args.output_path + '/fold_vs_c_index_report.csv', index=False)
+    fold_vs_c_index_report.to_csv(args.output_path + '/'+ args.model_name +'_fold_vs_c_index_report.csv', index=False)
 
     
 
