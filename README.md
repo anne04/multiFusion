@@ -2,9 +2,10 @@ This repository presents a deep learning model for predicting time to biochemica
 
 
 Instructions for running the model are as follows:
+
 (Assuming you have pulled this repository and set it as current working directory)
 ## Preprocessing Step:
-This step takes the image arrays from three modalities and time to BCR from clinical metadata into one pickle file for the training purpose. 
+This step takes the image arrays from three modalities and time to BCR from clinical metadata and combine them into one pickle file for the training purpose. 
 
 ```
 nohup python -u data_preprocess.py --path_dataset_mpMRI=Multimodal-Quiz/radiology/mpMRI/ --path_dataset_prost_mask_t2w=Multimodal-Quiz/radiology/prostate_mask_t2w/ --path_dataset_clinical=Multimodal-Quiz/clinical_data/ --output_path=Multimodal-Quiz/ > output_preprocess.log &
