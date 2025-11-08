@@ -5,5 +5,5 @@ Instructions for running the model are as follows:
 (Assuming you have pulled this repository and set it as current working directory)
 ## Preprocessing Step:
 ```
-nohup python -u data_preprocess
+nohup python -u data_preprocess.py --path_dataset_mpMRI=Multimodal-Quiz/radiology/mpMRI/ 
 ```
