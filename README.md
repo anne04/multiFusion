@@ -25,3 +25,6 @@ This command will run the multimodal fusion model that takes 3D MRI scans (image
 1. Logs (loss curves) will be saved under 'wandb/' and 'output/' directories by default.
 2. Best snapshot of the trained model will be saved under 'model/' directory.
 3. The C-index for each fold and case-by-case study reports are generated in 'output/<model_name>_fold_vs_c_index_report.csv' and 'output/<model_name>_case_by_case_report.csv' respectively. 
+
+
+Some sample outputs are provided under the "sample_output" directory in the repository.
