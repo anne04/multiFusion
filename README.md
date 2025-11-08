@@ -1,4 +1,4 @@
-This repository presents a deep learning model for integrating MRI scans coming from different modalities, in particular, ADC, HBV, and T2W. 
+This repository presents a deep learning model for predicting time to biochemical recurrence by integrating MRI scans coming from different modalities, in particular, ADC, HBV, and T2W. 
 
 
 Instructions for running the model are as follows:
