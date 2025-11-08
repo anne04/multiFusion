@@ -9,14 +9,6 @@ import gzip
 import argparse
 
 
-# USER INPUT
-#path_dataset_mpMRI = 'Multimodal-Quiz/radiology/mpMRI/'
-#path_dataset_prost_mask_t2w = 'Multimodal-Quiz/radiology/prostate_mask_t2w/'
-#path_dataset_clinical = 'Multimodal-Quiz/clinical_data/'
-# prepare the dataset
-
-########################### radiology ################################################
-
 
 def data_preprocess_multimodal(args):
     # This function takes user input through args, preprocess data, and save in required format.
@@ -24,18 +16,19 @@ def data_preprocess_multimodal(args):
     # training_data_multiFusion.pkl --> model training
     # patient_vs_clinical_data.csv --> just for metadata visualization
 
+
     patient_vs_modality_vs_image = defaultdict(dict)
     modality_vs_valueRange = defaultdict(list)
     # patient_vs_modality_vs_image[patient_id][modality_type] = image array
 
     # 
-    patient_id_list = [d.name for d in Path(path_dataset_mpMRI).iterdir() if d.is_dir()]
+    patient_id_list = [d.name for d in Path(args.path_dataset_mpMRI).iterdir() if d.is_dir()]
     print(patient_id_list)
 
     for patient_id in patient_id_list:
         print('patient id: ' + patient_id + ' reading...')
         for modality in ['adc', 'hbv']:
-            file_path = path_dataset_mpMRI + '/' + patient_id + '/' + patient_id + '_0001_'+modality+'.mha'
+            file_path = args.path_dataset_mpMRI + '/' + patient_id + '/' + patient_id + '_0001_'+modality+'.mha'
             image = sitk.ReadImage(file_path)
             image_array = sitk.GetArrayFromImage(image)
             #print(image_array.shape)
@@ -46,12 +39,12 @@ def data_preprocess_multimodal(args):
 
 
         modality = 't2w'
-        file_path = path_dataset_mpMRI + '/' + patient_id + '/' + patient_id + '_0001_'+modality+'.mha'
+        file_path = args.path_dataset_mpMRI + '/' + patient_id + '/' + patient_id + '_0001_'+modality+'.mha'
         image = sitk.ReadImage(file_path)
         image_array = sitk.GetArrayFromImage(image)
         #print(image_array.shape)
         # this one needs a mask
-        mask_file_path = path_dataset_prost_mask_t2w + '/' + patient_id + '_0001_' + 'mask' + '.mha'
+        mask_file_path = args.path_dataset_prost_mask_t2w + '/' + patient_id + '_0001_' + 'mask' + '.mha'
         mask_image = sitk.ReadImage(mask_file_path)
         mask_image_array = sitk.GetArrayFromImage(mask_image)
         # print(mask_image_array.shape)
@@ -82,7 +75,7 @@ def data_preprocess_multimodal(args):
     # get the max number of features first
     clinical_features = dict()
     for patient_id in patient_id_list:
-        json_file_path = path_dataset_clinical + '/' + patient_id + '.json'
+        json_file_path = args.path_dataset_clinical + '/' + patient_id + '.json'
         with open(json_file_path, 'r') as f:
             data = json.load(f)
 
@@ -95,7 +88,7 @@ def data_preprocess_multimodal(args):
     patient_vs_clinical_data = defaultdict(list) # patient_vs_clinical_data[patient_id] = vector having clinical info 
     patient_vs_feature_vs_value = defaultdict(dict)
     for patient_id in patient_id_list:
-        json_file_path = path_dataset_clinical + '/' + patient_id + '.json'
+        json_file_path = args.path_dataset_clinical + '/' + patient_id + '.json'
         with open(json_file_path, 'r') as f:
             data = json.load(f)
 
@@ -122,14 +115,14 @@ def data_preprocess_multimodal(args):
 
     # convert it to csv file for future reference
     df = pd.DataFrame(patient_vs_clinical_data)
-    df.to_csv(output_path + '/patient_vs_clinical_data.csv', index=False)
-    print('Saved at: '+ output_path + '/patient_vs_clinical_data.csv')
+    df.to_csv(args.output_path + '/patient_vs_clinical_data.csv', index=False)
+    print('Saved at: '+ args.output_path + '/patient_vs_clinical_data.csv')
 
     ## now pack the training dataset and save as pickle object
-    with gzip.open(output_path + '/training_data_multiFusion.pkl', 'wb') as fp:  
+    with gzip.open(args.output_path + '/training_data_multiFusion.pkl', 'wb') as fp:  
         pickle.dump([patient_vs_modality_vs_image, patient_vs_timeBCR], fp)
 
-    print('Saved at: ' + output_path + '/training_data_multiFusion.pkl')
+    print('Saved at: ' + args.output_path + '/training_data_multiFusion.pkl')
 
 
 
