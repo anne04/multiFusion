@@ -22,5 +22,6 @@ nohup python -u run_multiFusion.py --training_data=Multimodal-Quiz/training_data
 
 This command will run the multimodal fusion model that takes 3D MRI scans (image array) from three different modalities: ADC & HBV scans, and T2W prostate (masked by additional mask), extracts features from each modality separately (Convolution Neural Network), fuses them together (MLP) to get an integrated feature embedding, and finally predicts the time to BCR (MLP). The parameter --conv_dimension=3 ensures 3D convolution and user can use --conv_dimension=2 for running a 2D convolution for feature extraction. Other available parameters can be found in the User Guide. This step additionally runs K=5 fold cross-validation, and the performance, i.e., the C-index for each fold and case-by-case study reports are produced. This step outputs the following:
 
-1. Logs (loss curves) will be saved under 'wandb/' and 'output/' directories by default. Best snapshot of the trained model will be saved under 'model/' directory.
-2. The C-index for each fold and case-by-case study reports are generated in 'output/<model_name>_fold_vs_c_index_report.csv' and 'output/<model_name>_case_by_case_report.csv' respectively. 
+1. Logs (loss curves) will be saved under 'wandb/' and 'output/' directories by default.
+2. Best snapshot of the trained model will be saved under 'model/' directory.
+3. The C-index for each fold and case-by-case study reports are generated in 'output/<model_name>_fold_vs_c_index_report.csv' and 'output/<model_name>_case_by_case_report.csv' respectively. 
