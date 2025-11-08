@@ -21,25 +21,48 @@ class multiFusion(torch.nn.Module):
                 t2w_H: int,
                 t2w_W: int,
 
-                filter_count_layer1:int = 4, 
-                filter_count_layer2:int = 8,  
+                filter_count_layer1:int = 2, 
+                filter_count_layer2:int = 4,  
 
                 kernel_size1:int = 4,
                 kernel_size2:int = 2,
 
-                hidden_size_predictor_layer1:int = 128,
-                hidden_size_predictor_layer2:int = 64 
+                hidden_size_fusion_layer:int = 128,
+                hidden_size_prediction_layer:int = 64
                 ):
         """
-        This will initialize the model and return it.
+        This will initialize the deep learning model that takes input images from three modality, 
+        extract the features from each modality using Convolution layers, then fuses/integrates them 
+        into one combined feature embedding. Finally, it uses the fused layer to make prediction of 
+        a regression problem. 
+        
         Args:
-        input_size: concat size of gene embedding & protein embedding for a lig/rec gene
-        hidden_size_fusion and output_size_fusion: hidden/output layer dimensions for emb fusion
-        hidden_size_predictor_layer1 & hidden_size_predictor_layer2: hidden layers for ppi pred
-        """
-        super().__init__() # error happens without this 
+            channel_count_adc (int): This is the incoming channel/slide count in adc scans,
+            channel_count_hbv (int): This is the incoming channel/slide count in hbv scans,
+            channel_count_t2w (int): This is the incoming channel/slide count in t2w scans,
 
-        # Branch: adc --> should be replaced by the pretrained feature extractor
+            adc_H (int): Height of adc scans,
+            adc_W (int): Width of adc scans,
+
+            hbv_H (int): Height of hbv scans,
+            hbv_W (int): Width of hbv scans,
+
+            t2w_H (int): Height of t2w scans,
+            t2w_W (int): Width of t2w scans,
+
+            filter_count_layer1 (int): Filter or channel count for 1st Conv layer, 
+            filter_count_layer2 (int): Filter or channel count for 2nd Conv layer,  
+
+            kernel_size1 (int): Kernel dimension for 1st Conv layer,
+            kernel_size2 (int): Kernel dimension for 2nd Conv layer,
+
+            hidden_size_fusion_layer (int) = hidden dimension for the fusion MLP layer,
+            hidden_size_prediction_layer:int = hidden dimension for the prediction MLP layer
+
+        """
+        super().__init__() 
+
+        # Branch: adc --> could be replaced by the pretrained feature extractor
         self.adc_feature_layer = nn.Sequential(
             nn.Conv2d(in_channels = channel_count_adc, out_channels = filter_count_layer1, kernel_size = kernel_size1, padding='same'),
             nn.ReLU(),
@@ -63,7 +86,7 @@ class multiFusion(torch.nn.Module):
             nn.Flatten()
         )
 
-        # Branch: t2w --> should be replaced by the pretrained feature extractor
+        # Branch: t2w --> could be replaced by the pretrained feature extractor
         self.t2w_feature_layer = nn.Sequential(
             nn.Conv2d(in_channels = channel_count_t2w, out_channels = filter_count_layer1, kernel_size = kernel_size1, padding='same'),
             nn.ReLU(),
@@ -76,7 +99,7 @@ class multiFusion(torch.nn.Module):
             nn.Flatten()
         )
         '''
-        # Branch: clinical (input like a feature vector)
+        # Branch: potential extension: add clinical feature (input like a feature vector)
         self.clinical_feature_layer = nn.Sequential(
           nn.Linear(input_size, hidden_size_fusion),
           nn.BatchNorm1d(hidden_size_fusion),
@@ -98,16 +121,16 @@ class multiFusion(torch.nn.Module):
         input_size_fusion = int(flatten_size_adc + flatten_size_hbv + flatten_size_t2w) 
         # fuse all and pass through MLP classification layer 
         self.fusionNpredict_layer = nn.Sequential(
-            nn.Linear(input_size_fusion, hidden_size_predictor_layer1), 
+            nn.Linear(input_size_fusion, hidden_size_fusion_layer), 
             # use output_size_fusion*5 if clinical feature is used
-            nn.BatchNorm1d(hidden_size_predictor_layer1),
+            nn.BatchNorm1d(hidden_size_fusion_layer),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(hidden_size_predictor_layer1, hidden_size_predictor_layer2),
-            nn.BatchNorm1d(hidden_size_predictor_layer2),
+            nn.Linear(hidden_size_fusion_layer, hidden_size_prediction_layer),
+            nn.BatchNorm1d(hidden_size_prediction_layer),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(hidden_size_predictor_layer2, 1)
+            nn.Linear(hidden_size_prediction_layer, 1)
             # no sigmoid or other activation since it is a regression problem
         )
 
@@ -138,6 +161,162 @@ class multiFusion(torch.nn.Module):
         return recur_prediction
 
 
+class multiFusion3D(torch.nn.Module):
+    def __init__(self, 
+                adc_D:int,
+                hbv_D:int,
+                t2w_D:int,
+
+                adc_H: int,
+                adc_W: int,
+
+                hbv_H: int,
+                hbv_W: int,
+
+                t2w_H: int,
+                t2w_W: int,
+
+                filter_count_layer1:int = 2, 
+                filter_count_layer2:int = 4,  
+
+                kernel_size1:int = 4,
+                kernel_size2:int = 2,
+
+                hidden_size_fusion_layer:int = 128,
+                hidden_size_prediction_layer:int = 64
+                ):
+        """
+        This will initialize the deep learning model that takes input images from three modality, 
+        extract the features from each modality using Convolution layers, then fuses/integrates them 
+        into one combined feature embedding. Finally, it uses the fused layer to make prediction of 
+        a regression problem. 
+        
+        Args:
+            channel_count_adc (int): This is the incoming channel/slide count in adc scans,
+            channel_count_hbv (int): This is the incoming channel/slide count in hbv scans,
+            channel_count_t2w (int): This is the incoming channel/slide count in t2w scans,
+
+            adc_H (int): Height of adc scans,
+            adc_W (int): Width of adc scans,
+
+            hbv_H (int): Height of hbv scans,
+            hbv_W (int): Width of hbv scans,
+
+            t2w_H (int): Height of t2w scans,
+            t2w_W (int): Width of t2w scans,
+
+            filter_count_layer1 (int): Filter or channel count for 1st Conv layer, 
+            filter_count_layer2 (int): Filter or channel count for 2nd Conv layer,  
+
+            kernel_size1 (int): Kernel dimension for 1st Conv layer,
+            kernel_size2 (int): Kernel dimension for 2nd Conv layer,
+
+            hidden_size_fusion_layer (int) = hidden dimension for the fusion MLP layer,
+            hidden_size_prediction_layer:int = hidden dimension for the prediction MLP layer
+
+        """
+        super().__init__() 
+
+        # Branch: adc --> could be replaced by the pretrained feature extractor
+        self.adc_feature_layer = nn.Sequential(
+            nn.Conv3d(in_channels = 1, out_channels = filter_count_layer1, kernel_size = kernel_size1, padding='same'),
+            nn.ReLU(),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+            nn.Conv3d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size = kernel_size2, padding='same'),
+            nn.ReLU(),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+            nn.Flatten()
+        )
+
+        # Branch: hbv --> is there any pretrained model for hbv type?
+        self.hbv_feature_layer = nn.Sequential(
+            nn.Conv3d(in_channels = 1, out_channels = filter_count_layer1, kernel_size = kernel_size1, padding='same'),
+            nn.ReLU(),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+
+            nn.Conv3d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size = kernel_size2, padding='same'),
+            nn.ReLU(),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+
+            nn.Flatten()
+        )
+
+        # Branch: t2w --> could be replaced by the pretrained feature extractor
+        self.t2w_feature_layer = nn.Sequential(
+            nn.Conv3d(in_channels = 1, out_channels = filter_count_layer1, kernel_size = kernel_size1, padding='same'),
+            nn.ReLU(),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+
+            nn.Conv3d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size = kernel_size2, padding='same'),
+            nn.ReLU(),
+            nn.MaxPool3d(kernel_size=2, stride=2),
+
+            nn.Flatten()
+        )
+        '''
+        # Branch: potential extension: add clinical feature (input like a feature vector)
+        self.clinical_feature_layer = nn.Sequential(
+          nn.Linear(input_size, hidden_size_fusion),
+          nn.BatchNorm1d(hidden_size_fusion),
+          nn.ReLU(),
+          nn.Dropout(0.5),
+          nn.Linear(hidden_size_fusion, output_size_fusion),
+          nn.BatchNorm1d(output_size_fusion),
+          nn.ReLU(),
+          nn.Dropout(0.5)
+        )        
+        '''
+
+        # calculate the flatten size for multi modal branches before infusion
+        flatten_size_adc = filter_count_layer2 * np.floor((np.floor(adc_D/2))/2) *(adc_H/2)/2 * (adc_W/2)/2 
+        flatten_size_hbv = filter_count_layer2 * np.floor((np.floor(hbv_D/2))/2) * (hbv_H/2)/2 * (hbv_W/2)/2 
+        flatten_size_t2w = filter_count_layer2 * np.floor((np.floor(t2w_D/2))/2) * (t2w_H/2)/2 * (t2w_W/2)/2 
+
+
+        input_size_fusion = int(flatten_size_adc + flatten_size_hbv + flatten_size_t2w) 
+        # fuse all and pass through MLP classification layer 
+        self.fusionNpredict_layer = nn.Sequential(
+            nn.Linear(input_size_fusion, hidden_size_fusion_layer), 
+            # use output_size_fusion*5 if clinical feature is used
+            nn.BatchNorm1d(hidden_size_fusion_layer),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(hidden_size_fusion_layer, hidden_size_prediction_layer),
+            nn.BatchNorm1d(hidden_size_prediction_layer),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(hidden_size_prediction_layer, 1)
+            # no sigmoid or other activation since it is a regression problem
+        )
+
+    def forward(self, 
+                adc_ftr: torch.Tensor, 
+                hbv_ftr: torch.Tensor,
+                t2w_ftr: torch.Tensor, 
+                #clinical_ftr: torch.Tensor, 
+                )-> torch.Tensor:
+        
+        adc_emb = self.adc_feature_layer(adc_ftr)
+        hbv_emb = self.hbv_feature_layer(hbv_ftr)
+        t2w_emb = self.t2w_feature_layer(t2w_ftr)
+        #print(adc_emb.shape)
+
+        #clinical_emb = self.clinical_feature_layer(clinical_ftr)
+
+
+        # try with and without normalizing (usually normalizing is preferred before infusion)
+        adc_emb = F.normalize(adc_emb, p=2) 
+        #print(adc_emb.shape)
+
+        hbv_emb = F.normalize(hbv_emb, p=2) 
+        t2w_emb = F.normalize(t2w_emb, p=2) 
+        #clinical_emb = F.normalize(adc_emb, p=2) 
+
+        concat_emb = torch.cat((adc_emb, hbv_emb, t2w_emb), dim=1)
+
+        #concat_emb = torch.cat((adc_emb, hbv_emb, t2w_emb, clinical_emb), dim=1)
+        recur_prediction = self.fusionNpredict_layer(concat_emb)
+        return recur_prediction
 
 
 def train_multiFusion(
@@ -155,11 +334,24 @@ def train_multiFusion(
     fold = 0
     ):
     """
-    args:
-    training_set: torch.Tensor of training samples (80%)
-    validation_set: torch.Tensor of validation samples (20%)
-    val_class: list() of validation samples but with binary label (0/1)
-    threshold_score: some cutoff to set binary labels
+    This model is called to run the training.
+    Args:
+        args (argparse.parser): This is user arguments.
+        metadata_adc (list): List of channel, height, width information for ADC slides,
+        metadata_hbv (list): List of channel, height, width information for HBV slides,
+        metadata_t2w (list): List of channel, height, width information for T2W slides,
+        training_set: Tensor format of training data from four folds,
+        validation_set: Tensor format of validation data (10% of four folds by default), 
+        epoch (int): Total epochs/iterations for training,
+        batch_size (int) = Batch size for each epoch,
+        learning_rate (float): Learning rate for model training,
+        print_model_flag (int): Set to 1 if you want to print the model structure,
+        wandb_project_name (str): String name for your project to be used for logging,
+        fold (int): Current fold number - used for logging.
+
+    Returns:
+        This model saves the best model (args.model_name), saves the Wandb logs and CSV logs. 
+        This function does not return anything.
     """
 
     wandb.init(project=wandb_project_name, mode="offline", name="fold-"+str(fold))
@@ -167,21 +359,40 @@ def train_multiFusion(
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # initialize the model
-    model_multiFusion = multiFusion(
-                channel_count_adc = metadata_adc[0],
-                channel_count_hbv = metadata_hbv[0],
-                channel_count_t2w = metadata_t2w[0],
+    
+    if args.conv_dimension == 2: 
+        model_multiFusion = multiFusion(
+                    channel_count_adc = metadata_adc[0],
+                    channel_count_hbv = metadata_hbv[0],
+                    channel_count_t2w = metadata_t2w[0],
 
-                adc_H = metadata_adc[1],
-                adc_W = metadata_adc[2],
- 
-                hbv_H = metadata_hbv[1],
-                hbv_W = metadata_hbv[2],
-  
-                t2w_H = metadata_t2w[1],
-                t2w_W = metadata_t2w[2]
-                ).to(device)
-      
+                    adc_H = metadata_adc[1],
+                    adc_W = metadata_adc[2],
+    
+                    hbv_H = metadata_hbv[1],
+                    hbv_W = metadata_hbv[2],
+    
+                    t2w_H = metadata_t2w[1],
+                    t2w_W = metadata_t2w[2]
+                    ).to(device)
+    elif args.conv_dimension==3:
+        model_multiFusion = multiFusion3D(
+                    adc_D = metadata_adc[0],
+                    hbv_D = metadata_hbv[0],
+                    t2w_D = metadata_t2w[0],
+
+                    adc_H = metadata_adc[1],
+                    adc_W = metadata_adc[2],
+    
+                    hbv_H = metadata_hbv[1],
+                    hbv_W = metadata_hbv[2],
+    
+                    t2w_H = metadata_t2w[1],
+                    t2w_W = metadata_t2w[2]
+                    ).to(device)
+        
+
+
     if print_model_flag == 1:
         print(model_multiFusion)
     # set the loss function
@@ -205,9 +416,13 @@ def train_multiFusion(
         for batch_idx in range(0, total_batch):
             optimizer.zero_grad() # clears the grad, otherwise will add to the past calculations
             # get the batch of the training features and move to GPU
-            batch_adc_ftr = training_adc_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
-            batch_hbv_ftr = training_hbv_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
-            batch_t2w_ftr = training_t2w_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
+            batch_adc_ftr = training_adc_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size].to(device)
+            batch_hbv_ftr = training_hbv_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size].to(device)
+            batch_t2w_ftr = training_t2w_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size].to(device)
+
+            #batch_adc_ftr = training_adc_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
+            #batch_hbv_ftr = training_hbv_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
+            #batch_t2w_ftr = training_t2w_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
             batch_target = training_target[batch_idx*batch_size: (batch_idx+1)*batch_size, :].to(device)
             # run the model and get prediction
             batch_prediction = model_multiFusion(batch_adc_ftr, batch_hbv_ftr, batch_t2w_ftr)
@@ -299,7 +514,22 @@ def train_multiFusion(
             ############################
 
 
-def test_multiFusion(model_name, test_set, fold,  threshold_score = 0.5, total_batch=1):
+def test_multiFusion(model_name, 
+                    test_set, 
+                    fold,   
+                    total_batch=1):
+
+    """
+    Args:
+        model_name (string): model name to load and evaluate, 
+        test_set (list): This is a list ADC, HBV, T2W, Target tensors for testing patients, 
+        fold (int): This is current fold number for logging,   
+        total_batch (int): Batch size which is needed if testing set is huge.
+
+    Returns:
+        C-index and predicted time to CBR in the same order of input patient in test_set. 
+    
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # load the model
     model_multiFusion = torch.load(model_name)
@@ -338,7 +568,7 @@ def test_multiFusion(model_name, test_set, fold,  threshold_score = 0.5, total_b
     #print(batch_target[0:10])
     #######################
      
-    return test_Cindex
+    return test_Cindex, batch_prediction
 
 
 
