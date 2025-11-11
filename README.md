@@ -1,4 +1,4 @@
-This repository presents a deep learning model for predicting time to biochemical recurrence by integrating MRI scans coming from different modalities, in particular, ADC, HBV, and T2W. 
+This repository presents a deep learning model for predicting time to biochemical recurrence by integrating MRI scans coming from different modalities, in particular, Apparent Diffusion Coefficient (ADC) maps, High b-value Diffusion (HBV),  and T2-weighted imaging with prostate mask. 
 
 ## Packages to install:
 Please see [this](https://github.com/anne04/multiFusion/blob/main/package_installation.md) to setup the environment by installing required Python packages.
