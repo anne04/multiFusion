@@ -1,4 +1,5 @@
 ### data_preprocess.py 
+```
 --path_dataset_mpMRI = Path to mpMRI data, type=str, default='Multimodal-Quiz/radiology/mpMRI/'
 
 --path_dataset_prost_mask_t2w = Path to the mask image for T2W prostate scan, type=str, default="Multimodal-Quiz/radiology/prostate_mask_t2w/"
@@ -6,8 +7,9 @@
 --path_dataset_clinical = Path to the clinical metadata files, type=str, default='Multimodal-Quiz/clinical_data/'
 
 --output_path = Path to the output directory, type=str, default='Multimodal-Quiz/'
-
-### 
+```
+### run_multiFusion.py
+```
 --training_data = 'Path to training data', type=str, default='Multimodal-Quiz/training_data_multiFusion.pkl'
 
 --model_name = Provide a model name, type=str, default="2DmultiFusion_test"
@@ -35,5 +37,5 @@
 --manual_seed = Set it to yes for reproducible result, type=str, default='no'
 
 --seed = Set it to some integer for reproducible result, type=int.
-
+```
 
