@@ -31,4 +31,7 @@ This command will run the multimodal fusion model that takes MRI scans (image ar
 
 Some sample outputs are provided under the "sample_output" directory in the repository.
 
+### User Parameters:
+You can run the python scripts with -h parameter to see all available parameters. These are also provided [here](https://github.com/anne04/multiFusion/blob/main/user_parameters.md)
+
 
