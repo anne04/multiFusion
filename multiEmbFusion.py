@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from multiFusion_train_util import shuffle_data #, data_to_tensor
 from lifelines.utils import concordance_index
 import wandb
+from collections import defaultdict 
+import pandas as pd
 
 class multiFusion(torch.nn.Module):
     def __init__(self, 
@@ -334,7 +336,7 @@ def train_multiFusion(
     fold = 0
     ):
     """
-    This function is called to run the training.
+    This model is called to run the training.
     Args:
         args (argparse.parser): This is user arguments.
         metadata_adc (list): List of channel, height, width information for ADC slides,
@@ -402,8 +404,8 @@ def train_multiFusion(
     optimizer = torch.optim.Adam(model_multiFusion.parameters(), lr=learning_rate)
     epoch_interval = 20 # CHECK
     #### for plotting loss curve ########
-    loss_curve = np.zeros((epoch//epoch_interval+1, 4))
-    loss_curve_counter = 0
+    loss_curve = defaultdict(list)
+
     ######################################
     total_training_samples = training_set[0].shape[0]
     total_batch = total_training_samples//batch_size
@@ -462,6 +464,7 @@ def train_multiFusion(
             model_multiFusion.eval()
             batch_prediction = model_multiFusion(batch_adc_ftr, batch_hbv_ftr, batch_t2w_ftr)
             validation_loss = loss_function(batch_prediction.flatten(), batch_target.flatten())
+            validation_loss = validation_loss.item()
             batch_prediction = list(batch_prediction.flatten().cpu().detach().numpy())
             batch_target = list(batch_target.flatten().cpu().detach().numpy())
             validation_Cindex = concordance_index(batch_target, batch_prediction)
@@ -501,15 +504,14 @@ def train_multiFusion(
             #######################
 
             ######## update the loss curve #########
-            loss_curve[loss_curve_counter][0] = avg_loss
-            loss_curve[loss_curve_counter][1] = validation_loss
-            loss_curve[loss_curve_counter][2] = validation_Cindex
+            loss_curve['training_loss'].append(avg_loss)
+            loss_curve['validation_loss'].append(validation_loss)
+            loss_curve['validation_C-index'].append(validation_Cindex)
 
+    #print(loss_curve)
+    loss_curve = pd.DataFrame(loss_curve)
+    loss_curve.to_csv(args.output_path + '/' + wandb_project_name+'_fold'+ str(fold) +'_loss_curve.csv', index=False)
 
-    loss_curve_counter = loss_curve_counter + 1
-    logfile=open(wandb_project_name+'_fold'+ str(fold) +'_loss_curve.csv', 'wb')
-    np.savetxt(logfile,loss_curve, delimiter=',')
-    logfile.close()
     wandb.finish()
             ############################
 
@@ -555,13 +557,6 @@ def test_multiFusion(model_name,
     test_Cindex = concordance_index(test_target, batch_prediction) 
 
     print('fold '+ str(fold) +' C-index is %g'%test_Cindex)
-    '''
-    wandb.log({
-        "fold": fold,
-        "test_c_index": test_Cindex
-    })    
-
-    '''
 
     ### just for debug ###
     #print(batch_prediction[0:10])
