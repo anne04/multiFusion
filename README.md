@@ -29,7 +29,7 @@ This command will run the multimodal fusion model that takes MRI scans (image ar
 2. Best snapshot of the trained model will be saved under 'model/' directory.
 3. The C-index for each fold and case-by-case study reports are generated in 'output/<model_name>_fold_vs_c_index_report.csv' and 'output/<model_name>_case_by_case_report.csv' respectively. 
 
-A sample wandb log for the above run can be viewed [here](https://github.com/anne04/multiFusion/blob/main/wandb_log_multiFusion_2dConv_model.png). The corresponsing C-index report for each fold is here and the case by case study for the patients is here.
+A sample wandb log for the above run can be viewed [here](https://github.com/anne04/multiFusion/blob/main/wandb_log_multiFusion_2dConv_model.png). The corresponsing C-index report for each fold is [here](https://github.com/anne04/multiFusion/blob/main/fold_vs_c_index_report.csv) and the case by case study for the patients is [here](https://github.com/anne04/multiFusion/blob/main/case_by_case_report.csv).
 
 ### User Parameters:
 You can run the python scripts with -h parameter to see all available parameters. These are also provided [here](https://github.com/anne04/multiFusion/blob/main/user_parameters.md)
