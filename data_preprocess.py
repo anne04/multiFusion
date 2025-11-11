@@ -23,7 +23,7 @@ def data_preprocess_multimodal(args):
 
     # 
     patient_id_list = [d.name for d in Path(args.path_dataset_mpMRI).iterdir() if d.is_dir()]
-    print(patient_id_list)
+    #print(patient_id_list)
 
     for patient_id in patient_id_list:
         print('patient id: ' + patient_id + ' reading...')
