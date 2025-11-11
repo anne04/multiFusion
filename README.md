@@ -20,7 +20,7 @@ This command will preprocess the input dataset and produce following two files:
 
 ### Training Step and K-fold cross-validation:
 ```
-nohup python -u run_multiFusion.py --training_data=Multimodal-Quiz/training_data_multiFusion.pkl --model_name=3DmultiFusion_test --conv_dimension=3 --wandb_project_name=3Dmultimodal_fusion' --fold_count=5 --kfold_info_file=Multimodal-Quiz/data_split_5fold.csv 
+nohup python -u run_multiFusion.py --training_data=Multimodal-Quiz/training_data_multiFusion.pkl --model_name=2DmultiFusion_test --conv_dimension=2 --wandb_project_name=2Dmultimodal_fusion' --fold_count=5 --kfold_info_file=Multimodal-Quiz/data_split_5fold.csv 
 ```
 
 This command will run the multimodal fusion model that takes 3D MRI scans (image array) from three different modalities: ADC & HBV scans, and T2W prostate (masked by additional mask), extracts features from each modality separately (Convolution Neural Network), fuses them together (MLP) to get an integrated feature embedding, and finally predicts the time to BCR (MLP). The parameter --conv_dimension=3 ensures 3D convolution and user can use --conv_dimension=2 for running a 2D convolution for feature extraction. Other available parameters can be found in the User Guide. This step additionally runs K=5 fold cross-validation, and the performance, i.e., the C-index for each fold and case-by-case study reports are produced. This step outputs the following:
