@@ -83,6 +83,11 @@ if __name__ == "__main__":
     # get metadata to add padding if slide is missing or row/column mismatch between samples
     metadata_adc, metadata_hbv, metadata_t2w = get_metadata(patient_vs_modality_vs_image)
     ## maximum [C, H, W] for each modality 
+    print('Image dimensions:')
+    print(metadata_adc)
+    print(metadata_hbv)
+    print(metadata_t2w)
+
 
     fold_patient_BCR_timeBCR_prediction = defaultdict(list)
     fold_vs_c_index = defaultdict(list)
@@ -143,4 +148,5 @@ if __name__ == "__main__":
     print('Saved at: ' + args.output_path + '/'+ model_name +'_fold_vs_c_index_report.csv')
 
     print('All done.')
+
 
