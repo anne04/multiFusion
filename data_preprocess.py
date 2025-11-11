@@ -129,10 +129,10 @@ def data_preprocess_multimodal(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # =========================== must be provided ===============================
-    parser.add_argument( '--path_dataset_mpMRI', type=str, default='Multimodal-Quiz/radiology/mpMRI/', help='Path to training data')
-    parser.add_argument( '--path_dataset_prost_mask_t2w', type=str, default="Multimodal-Quiz/radiology/prostate_mask_t2w/", help='Provide a model name')
-    parser.add_argument( '--path_dataset_clinical', type=str, default='Multimodal-Quiz/clinical_data/', help='Provide the total fold')
-    parser.add_argument( '--output_path', type=str, default='Multimodal-Quiz/', help='Path to save the model state')
+    parser.add_argument( '--path_dataset_mpMRI', type=str, default='Multimodal-Quiz/radiology/mpMRI/', help='Path to mpMRI data')
+    parser.add_argument( '--path_dataset_prost_mask_t2w', type=str, default="Multimodal-Quiz/radiology/prostate_mask_t2w/", help='Path to the mask image for T2W prostate scan')
+    parser.add_argument( '--path_dataset_clinical', type=str, default='Multimodal-Quiz/clinical_data/', help='Path to the clinical metadata files')
+    parser.add_argument( '--output_path', type=str, default='Multimodal-Quiz/', help='Path to the output directory')
     #============================================================================
     args = parser.parse_args() 
 
