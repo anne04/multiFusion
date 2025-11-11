@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 The above command should setup the environment properly. If the Pytorch setup fails due to unmatched CUDA in your system, 
 then please install it manualy based on your Pytorch and CUDA version (https://pytorch.org/get-started/previous-versions/). 
-Here we are using pytorch 1.13.1 with CUDA 11.7:
+Here we are using pytorch 2.2.2 with CUDA 12.1:
 
 ```
 pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu121
