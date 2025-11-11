@@ -33,7 +33,7 @@ This command will run the multimodal fusion model that takes MRI scans (image ar
 A sample wandb log for the above run can be viewed [here](https://github.com/anne04/multiFusion/blob/main/wandb_log_multiFusion_2dConv_model.png). The corresponsing C-index report for each fold is [here](https://github.com/anne04/multiFusion/blob/main/fold_vs_c_index_report.csv) and the case-by-case study for the patients is [here](https://github.com/anne04/multiFusion/blob/main/case_by_case_report.csv). (Please note that, the goal of this project is to demonstrate the development of a multimodal model, thus the used dataset is very small (95 patients). That is why the accuracy is not very impressive. But in a real case scenario, the dataset can be larger, and pretrained foundation models will be used for feature extraction instead of developing a feature extractor from scratch, which is supposed to improve the results drastically.  
 
 #### Trained Models:
-Trained models can be found here.
+Trained models can be found [here](https://huggingface.co/fatema04/multiFusion/tree/main).
 
 ### User Parameters:
 You can run the python scripts with -h parameter to see all available parameters. These are also provided [here](https://github.com/anne04/multiFusion/blob/main/user_parameters.md)
