@@ -1,8 +1,8 @@
 This repository develops a multimodal deep learning model 'multiFusion' for predicting time to biochemical recurrence by integrating MRI scans coming from different modalities, in particular, Apparent Diffusion Coefficient (ADC) maps, High b-value Diffusion (HBV),  and T2-weighted imaging with prostate mask. 
 
 ## Packages to install:
-Please see [this](https://github.com/anne04/multiFusion/blob/main/package_installation.md) to setup the environment by installing required Python packages.
-
+This project is developed on Ubuntu environment with four CPUs each having 30GB RAM, 1 GPU with 12 GB GPU memory, and Python 3.10.13, Pytorch 2.2.2 (with CUDA 12.1). For more details to setup the environment 
+by installing required Python packages please see [this](https://github.com/anne04/multiFusion/blob/main/package_installation.md) 
 
 ## Running MultiFusion model
 Please pull this repository, download the dataset "Multimodal-Quiz", keep it inside the repository directory, and set it as current working directory. Then follow the steps as below:
