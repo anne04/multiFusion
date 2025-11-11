@@ -5,9 +5,8 @@ Please see [this](https://github.com/anne04/multiFusion/blob/main/package_instal
 
 
 ## Running MultiFusion model
-Instructions for running the model are as follows:
+Please pull this repository, download the dataset "Multimodal-Quiz", keep it inside the repository directory, and set it as current working directory. Then follow the steps as below:
 
-(Assuming you have pulled this repository and set it as current working directory)
 ## Preprocessing Step:
 This step takes the image arrays from three modalities and time to BCR from clinical metadata and combine them into one pickle file for the training purpose. 
 
