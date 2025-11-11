@@ -7,7 +7,7 @@ Please see [this](https://github.com/anne04/multiFusion/blob/main/package_instal
 ## Running MultiFusion model
 Please pull this repository, download the dataset "Multimodal-Quiz", keep it inside the repository directory, and set it as current working directory. Then follow the steps as below:
 
-## Preprocessing Step:
+### Preprocessing Step:
 This step takes the image arrays from three modalities and time to BCR from clinical metadata and combine them into one pickle file for the training purpose. 
 
 ```
@@ -18,7 +18,7 @@ This command will preprocess the input dataset and produce following two files:
 1. Multimodal-Quiz/training_data_multiFusion.pkl (Dataset for model training)
 2. Multimodal-Quiz/patient_vs_clinical_data.csv (For easy visualization of metadata)
 
-## Training Step and K-fold cross-validation:
+### Training Step and K-fold cross-validation:
 ```
 nohup python -u run_multiFusion.py --training_data=Multimodal-Quiz/training_data_multiFusion.pkl --model_name=3DmultiFusion_test --conv_dimension=3 --wandb_project_name=3Dmultimodal_fusion' --fold_count=5 --kfold_info_file=Multimodal-Quiz/data_split_5fold.csv 
 ```
