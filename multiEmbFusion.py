@@ -165,9 +165,9 @@ class multiFusion(torch.nn.Module):
 
 class multiFusion3D(torch.nn.Module):
     def __init__(self, 
-                adc_D:int,
-                hbv_D:int,
-                t2w_D:int,
+                adc_D: int,
+                hbv_D: int,
+                t2w_D: int,
 
                 adc_H: int,
                 adc_W: int,
@@ -194,9 +194,9 @@ class multiFusion3D(torch.nn.Module):
         a regression problem. 
         
         Args:
-            channel_count_adc (int): This is the incoming channel/slide count in adc scans,
-            channel_count_hbv (int): This is the incoming channel/slide count in hbv scans,
-            channel_count_t2w (int): This is the incoming channel/slide count in t2w scans,
+            adc_D (int): This is the incoming channel/slide count in adc scans which is treated as depth,
+            hbv_D (int): This is the incoming channel/slide count in hbv scans which is treated as depth,
+            t2w_D (int): This is the incoming channel/slide count in t2w scans which is treated as depth,
 
             adc_H (int): Height of adc scans,
             adc_W (int): Width of adc scans,
