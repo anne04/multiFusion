@@ -7,7 +7,7 @@ import pandas as pd
 import pickle
 import gzip
 import argparse
-
+import os
 
 
 def data_preprocess_multimodal(args):
@@ -33,6 +33,11 @@ def data_preprocess_multimodal(args):
             image_array = sitk.GetArrayFromImage(image)
             #print(image_array.shape)
             patient_vs_modality_vs_image[patient_id][modality] = image_array
+            
+
+
+
+
             modality_vs_valueRange[modality].append(np.min(image_array))
             modality_vs_valueRange[modality].append(np.max(image_array))
             
@@ -105,13 +110,14 @@ def data_preprocess_multimodal(args):
                 
     # get patient vs time to BCR - for model training 
     patient_vs_timeBCR = dict()
+    patient_vs_weight = dict() # sample weight
     for patient_id in patient_id_list:
         if int(float(patient_vs_feature_vs_value[patient_id]['BCR']))==0: # BCR did not happen
             patient_vs_timeBCR[patient_id] = 100.0 # some high value to indicate long time to BCR
-
+            patient_vs_weight[patient_id] = 1
         else: # record the actual time of BCR
             patient_vs_timeBCR[patient_id] = float(patient_vs_feature_vs_value[patient_id]['time_to_follow-up/BCR'])
-
+            patient_vs_weight[patient_id] = 3
 
     # convert it to csv file for future reference
     df = pd.DataFrame(patient_vs_clinical_data)
@@ -120,7 +126,7 @@ def data_preprocess_multimodal(args):
 
     ## now pack the training dataset and save as pickle object
     with gzip.open(args.output_path + '/training_data_multiFusion.pkl', 'wb') as fp:  
-        pickle.dump([patient_vs_modality_vs_image, patient_vs_timeBCR], fp)
+        pickle.dump([patient_vs_modality_vs_image, patient_vs_timeBCR, patient_vs_weight], fp)
 
     print('Saved at: ' + args.output_path + '/training_data_multiFusion.pkl')
 
@@ -136,7 +142,11 @@ if __name__ == "__main__":
     #============================================================================
     args = parser.parse_args() 
 
+    if not os.path.exists(args.output_path):
+        os.makedirs(args.output_path) 
+
+
     data_preprocess_multimodal(args)
 
 
-    exit(0)
+    
