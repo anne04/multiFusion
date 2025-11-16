@@ -1,9 +1,10 @@
 import torch
 import numpy as np
+from scipy.ndimage import rotate
 
 def shuffle_data(
     training_set
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     This function takes input the training data in tensor format, shuffles it and then 
     separates into multiple branches (adc, hbv, t2w, target) to be passed through the multi-modal deep learning model.  
@@ -16,24 +17,112 @@ def shuffle_data(
         Separate tensors of ADC, HBV, T2W, and Target values 
 
     """
-    patient_vs_adc_tensors_train = training_set[0]
-    patient_vs_hbv_tensors_train = training_set[1]
-    patient_vs_t2w_tensors_train = training_set[2]
-    patient_vs_prediction_tensors_train = training_set[3]
+    patient_vs_adc_train = training_set[0]
+    patient_vs_hbv_train = training_set[1]
+    patient_vs_t2w_train = training_set[2]
+    patient_vs_prediction_train = training_set[3]
+    patient_vs_weight_train = training_set[4]
 
     # Generate random permutation of row indices
-    sample_count = patient_vs_adc_tensors_train.size(0)
+    sample_count = patient_vs_adc_train.shape[0]
     #prediction_column = training_set.size(1)-1
     row_perm = torch.randperm(sample_count)
 
     # Shuffle the rows using advanced indexing # 
-    patient_vs_adc_tensors_train = patient_vs_adc_tensors_train[row_perm]
-    patient_vs_hbv_tensors_train = patient_vs_hbv_tensors_train[row_perm] 
-    patient_vs_t2w_tensors_train = patient_vs_t2w_tensors_train[row_perm]
-    patient_vs_prediction_tensors_train = patient_vs_prediction_tensors_train[row_perm]
-    
+    patient_vs_adc_train = patient_vs_adc_train[row_perm]
+    patient_vs_hbv_train = patient_vs_hbv_train[row_perm] 
+    patient_vs_t2w_train = patient_vs_t2w_train[row_perm]
+    patient_vs_prediction_train = patient_vs_prediction_train[row_perm]
+    patient_vs_weight_train = patient_vs_weight_train[row_perm]
 
-    return patient_vs_adc_tensors_train, patient_vs_hbv_tensors_train, patient_vs_t2w_tensors_train, patient_vs_prediction_tensors_train
+    # Now augment: Org, random Gaussian Noise, random rotation - 3 times
+    training_data_count = sample_count*5
+    patient_vs_adc_tensors_train = np.zeros((training_data_count, patient_vs_adc_train[0].shape[0], patient_vs_adc_train[0].shape[1], patient_vs_adc_train[0].shape[2]))
+    patient_vs_hbv_tensors_train = np.zeros((training_data_count, patient_vs_hbv_train[0].shape[0], patient_vs_hbv_train[0].shape[1], patient_vs_hbv_train[0].shape[2]))
+    patient_vs_t2w_tensors_train = np.zeros((training_data_count, patient_vs_t2w_train[0].shape[0], patient_vs_t2w_train[0].shape[1], patient_vs_t2w_train[0].shape[2]))
+    patient_vs_prediction_tensors_train = np.zeros((training_data_count, 1))
+    patient_vs_weight_tensors_train = np.zeros((training_data_count, 1))
+
+    i_train = 0
+    for indx in range (0, sample_count):
+
+        image_array_adc = patient_vs_adc_train[indx]
+        image_array_hbv = patient_vs_hbv_train[indx]
+        image_array_t2w = patient_vs_t2w_train[indx]
+
+        prediction = patient_vs_prediction_train[indx]
+        sample_weight = patient_vs_weight_train[indx]
+
+        ############# org ##############
+        patient_vs_adc_tensors_train[i_train][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = image_array_adc
+        patient_vs_hbv_tensors_train[i_train][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = image_array_hbv
+        patient_vs_t2w_tensors_train[i_train][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = image_array_t2w
+        patient_vs_prediction_tensors_train[i_train][0] = prediction
+        patient_vs_weight_tensors_train[i_train][0] = sample_weight
+        i_train = i_train + 1
+
+        ######### rotate along HxW plane ###############
+        angle = np.random.randint(low=-15, high=+15)
+        image_array_adc_temp = rotate(image_array_adc, angle=angle, axes=(1, 2), reshape=False)
+        image_array_hbv_temp = rotate(image_array_hbv, angle=angle, axes=(1, 2), reshape=False)
+        image_array_t2w_temp = rotate(image_array_t2w, angle=angle, axes=(1, 2), reshape=False)
+
+        patient_vs_adc_tensors_train[i_train][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = image_array_adc_temp
+        patient_vs_hbv_tensors_train[i_train][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = image_array_hbv_temp
+        patient_vs_t2w_tensors_train[i_train][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = image_array_t2w_temp
+        patient_vs_prediction_tensors_train[i_train][0] = prediction
+        patient_vs_weight_tensors_train[i_train][0] = sample_weight
+        i_train = i_train + 1
+
+        # gaussian Noise ################
+        image_array_adc_temp= image_array_adc + np.random.normal(0, 0.01, image_array_adc.shape)
+        image_array_hbv_temp = image_array_hbv + np.random.normal(0, 0.01, image_array_hbv.shape)
+        image_array_t2w_temp = image_array_t2w + np.random.normal(0, 0.01, image_array_t2w.shape)
+
+        patient_vs_adc_tensors_train[i_train][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = scale_image(image_array_adc_temp)
+        patient_vs_hbv_tensors_train[i_train][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = scale_image(image_array_hbv_temp)
+        patient_vs_t2w_tensors_train[i_train][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = scale_image(image_array_t2w_temp)
+        patient_vs_prediction_tensors_train[i_train][0] = prediction
+        patient_vs_weight_tensors_train[i_train][0] = sample_weight
+        i_train = i_train + 1
+        ######### rotate along HxW plane ###############
+        angle = np.random.randint(low=-15, high=+15)
+        image_array_adc_temp = rotate(image_array_adc, angle=angle, axes=(1, 2), reshape=False)
+        image_array_hbv_temp = rotate(image_array_hbv, angle=angle, axes=(1, 2), reshape=False)
+        image_array_t2w_temp = rotate(image_array_t2w, angle=angle, axes=(1, 2), reshape=False)
+
+        patient_vs_adc_tensors_train[i_train][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = image_array_adc_temp
+        patient_vs_hbv_tensors_train[i_train][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = image_array_hbv_temp
+        patient_vs_t2w_tensors_train[i_train][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = image_array_t2w_temp
+        patient_vs_prediction_tensors_train[i_train][0] = prediction
+        patient_vs_weight_tensors_train[i_train][0] = sample_weight
+        i_train = i_train + 1
+
+        # gaussian Noise ################
+        image_array_adc_temp= image_array_adc + np.random.normal(0, 0.01, image_array_adc.shape)
+        image_array_hbv_temp = image_array_hbv + np.random.normal(0, 0.01, image_array_hbv.shape)
+        image_array_t2w_temp = image_array_t2w + np.random.normal(0, 0.01, image_array_t2w.shape)
+
+        patient_vs_adc_tensors_train[i_train][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = scale_image(image_array_adc_temp)
+        patient_vs_hbv_tensors_train[i_train][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = scale_image(image_array_hbv_temp)
+        patient_vs_t2w_tensors_train[i_train][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = scale_image(image_array_t2w_temp)
+        patient_vs_prediction_tensors_train[i_train][0] = prediction
+        patient_vs_weight_tensors_train[i_train][0] = sample_weight
+        i_train = i_train + 1
+
+
+    # now convert to tensor
+
+    patient_vs_adc_tensors_train = torch.tensor(patient_vs_adc_tensors_train, dtype=torch.float)
+    patient_vs_hbv_tensors_train = torch.tensor(patient_vs_hbv_tensors_train, dtype=torch.float)
+    patient_vs_t2w_tensors_train = torch.tensor(patient_vs_t2w_tensors_train, dtype=torch.float)
+    patient_vs_prediction_tensors_train = torch.tensor(patient_vs_prediction_tensors_train, dtype=torch.float)
+    patient_vs_weight_tensors_train = torch.tensor(patient_vs_weight_tensors_train, dtype=torch.float)
+
+
+    return patient_vs_adc_tensors_train, patient_vs_hbv_tensors_train, patient_vs_t2w_tensors_train, patient_vs_prediction_tensors_train, patient_vs_weight_tensors_train
+
+
 
 def scale_image(img):
     """
@@ -44,7 +133,11 @@ def scale_image(img):
     img_min = np.min(img)
     img_max = np.max(img)
 
-    scaled_img = 255 * (img - img_min) / (img_max - img_min)
+    if img_max - img_min == 0:
+        scaled_img = 0 * img
+                            
+    else:
+        scaled_img = 255 * (img - img_min) / (img_max - img_min)
     #scaled_img = scaled_img.astype(np.uint8)
     return scaled_img
 
@@ -109,8 +202,10 @@ def data_to_tensor(
     metadata_t2w,
     patient_vs_modality_vs_image, 
     patient_vs_timeBCR,
+    patient_vs_weight,
     test_fold_patient_list,
-    validation_percent = 10
+    validation_fold_patient_list,
+    validation_percent = -1,
     ):
     """
     This model takes the training data in raw format and convert them to tensors.
@@ -134,90 +229,225 @@ def data_to_tensor(
     ####### initialze placeholder arrays that will be converter to tensor #######
 
     testing_data_count = len(test_fold_patient_list)
-    training_data_count = len(list(patient_vs_modality_vs_image.keys())) - testing_data_count
+    validation_data_count = len(validation_fold_patient_list)
+    if len(validation_fold_patient_list)!=0:
+        training_data_count = len(list(patient_vs_modality_vs_image.keys())) - testing_data_count - validation_data_count
+    else:
+        training_data_count = len(list(patient_vs_modality_vs_image.keys())) - testing_data_count
+
+
+
+
 
     patient_vs_adc_tensors_train = np.zeros((training_data_count, metadata_adc[0], metadata_adc[1], metadata_adc[2]))
     patient_vs_adc_tensors_test = np.zeros((testing_data_count, metadata_adc[0], metadata_adc[1], metadata_adc[2]))
+    patient_vs_adc_tensors_validation = np.zeros((validation_data_count, metadata_adc[0], metadata_adc[1], metadata_adc[2]))
+
 
     patient_vs_hbv_tensors_train = np.zeros((training_data_count, metadata_hbv[0], metadata_hbv[1], metadata_hbv[2]))
     patient_vs_hbv_tensors_test = np.zeros((testing_data_count, metadata_hbv[0], metadata_hbv[1], metadata_hbv[2]))
+    patient_vs_hbv_tensors_validation = np.zeros((validation_data_count, metadata_hbv[0], metadata_hbv[1], metadata_hbv[2]))
 
     patient_vs_t2w_tensors_train = np.zeros((training_data_count, metadata_t2w[0], metadata_t2w[1], metadata_t2w[2]))
     patient_vs_t2w_tensors_test = np.zeros((testing_data_count, metadata_t2w[0], metadata_t2w[1], metadata_t2w[2]))
+    patient_vs_t2w_tensors_validation = np.zeros((validation_data_count, metadata_t2w[0], metadata_t2w[1], metadata_t2w[2]))
 
     patient_vs_prediction_tensors_train = np.zeros((training_data_count, 1))
     patient_vs_prediction_tensors_test = np.zeros((testing_data_count,1))
+    patient_vs_prediction_tensors_validation = np.zeros((validation_data_count,1))
 
+    patient_vs_weight_tensors_train = np.zeros((training_data_count, 1))
 
     i_test = 0
     i_train = 0
+    i_val = 0
     patient_order = []
     for patient_id in patient_vs_modality_vs_image:
 
         image_array_adc = patient_vs_modality_vs_image[patient_id]['adc']
-        image_array_adc = scale_image(image_array_adc)
-
         image_array_hbv = patient_vs_modality_vs_image[patient_id]['hbv']
-        image_array_hbv = scale_image(image_array_hbv)
-
         image_array_t2w = patient_vs_modality_vs_image[patient_id]['t2w']
-        image_array_t2w = scale_image(image_array_t2w)
 
         prediction = patient_vs_timeBCR[patient_id]
-
+        sample_weight = patient_vs_weight[patient_id]
 
         if int(patient_id) in test_fold_patient_list:
-            patient_vs_adc_tensors_test[i_test][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = image_array_adc
-            patient_vs_hbv_tensors_test[i_test][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = image_array_hbv
-            patient_vs_t2w_tensors_test[i_test][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = image_array_t2w
+            patient_vs_adc_tensors_test[i_test][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = scale_image(image_array_adc)
+            patient_vs_hbv_tensors_test[i_test][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = scale_image(image_array_hbv)
+            patient_vs_t2w_tensors_test[i_test][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = scale_image(image_array_t2w)
             patient_vs_prediction_tensors_test[i_test][0] = prediction
             i_test = i_test + 1
             patient_order.append(patient_id)
+
+        elif int(patient_id) in validation_fold_patient_list:
+            patient_vs_adc_tensors_validation[i_val][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = scale_image(image_array_adc)
+            patient_vs_hbv_tensors_validation[i_val][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = scale_image(image_array_hbv)
+            patient_vs_t2w_tensors_validation[i_val][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = scale_image(image_array_t2w)
+            patient_vs_prediction_tensors_validation[i_val][0] = prediction
+            i_val = i_val + 1
+
         else:
-            patient_vs_adc_tensors_train[i_train][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = image_array_adc
-            patient_vs_hbv_tensors_train[i_train][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = image_array_hbv
-            patient_vs_t2w_tensors_train[i_train][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = image_array_t2w
+            patient_vs_adc_tensors_train[i_train][0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = scale_image(image_array_adc)
+            patient_vs_hbv_tensors_train[i_train][0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = scale_image(image_array_hbv)
+            patient_vs_t2w_tensors_train[i_train][0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = scale_image(image_array_t2w)
             patient_vs_prediction_tensors_train[i_train][0] = prediction
+            patient_vs_weight_tensors_train[i_train][0] = sample_weight
             i_train = i_train + 1
 
-
     # take 20% of train for validation ########################################################
-    validation_count = (training_data_count*validation_percent) // 100
-    patient_vs_adc_tensors_validation = patient_vs_adc_tensors_train[0:validation_count]
-    patient_vs_adc_tensors_train = patient_vs_adc_tensors_train[validation_count:]
     
-    patient_vs_hbv_tensors_validation = patient_vs_hbv_tensors_train[0:validation_count]
-    patient_vs_hbv_tensors_train = patient_vs_hbv_tensors_train[validation_count:]
+    if validation_percent != -1 :
+        sample_count = training_data_count
+        row_perm = torch.randperm(sample_count)
+        patient_vs_adc_tensors_train = patient_vs_adc_tensors_train[row_perm]
+        patient_vs_hbv_tensors_train = patient_vs_hbv_tensors_train[row_perm]
+        patient_vs_t2w_tensors_train = patient_vs_t2w_tensors_train[row_perm]
+        patient_vs_prediction_tensors_train = patient_vs_prediction_tensors_train[row_perm]
+        patient_vs_weight_tensors_train = patient_vs_weight_tensors_train[row_perm]
 
-    patient_vs_t2w_tensors_validation = patient_vs_t2w_tensors_train[0:validation_count]
-    patient_vs_t2w_tensors_train = patient_vs_t2w_tensors_train[validation_count:]
+        validation_count = (training_data_count*validation_percent) // 100
+        patient_vs_adc_tensors_validation = patient_vs_adc_tensors_train[0:validation_count]
+        patient_vs_adc_tensors_train = patient_vs_adc_tensors_train[validation_count:]
+    
+        patient_vs_hbv_tensors_validation = patient_vs_hbv_tensors_train[0:validation_count]
+        patient_vs_hbv_tensors_train = patient_vs_hbv_tensors_train[validation_count:]
 
-    patient_vs_prediction_tensors_validation = patient_vs_prediction_tensors_train[0:validation_count]
-    patient_vs_prediction_tensors_train = patient_vs_prediction_tensors_train[validation_count:]
+        patient_vs_t2w_tensors_validation = patient_vs_t2w_tensors_train[0:validation_count]
+        patient_vs_t2w_tensors_train = patient_vs_t2w_tensors_train[validation_count:]
+
+        patient_vs_prediction_tensors_validation = patient_vs_prediction_tensors_train[0:validation_count]
+        patient_vs_prediction_tensors_train = patient_vs_prediction_tensors_train[validation_count:]
+
+        #patient_vs_weight_tensors_validation = patient_vs_weight_tensors_train[0:validation_count]
+        patient_vs_weight_tensors_train = patient_vs_weight_tensors_train[validation_count:]    
+    
+    
+
     ############################################################################################
     # convert to tensor
-    patient_vs_adc_tensors_train = torch.tensor(patient_vs_adc_tensors_train, dtype=torch.float)
+    #patient_vs_adc_tensors_train = torch.tensor(patient_vs_adc_tensors_train, dtype=torch.float)
     patient_vs_adc_tensors_validation = torch.tensor(patient_vs_adc_tensors_validation, dtype=torch.float)
     patient_vs_adc_tensors_test = torch.tensor(patient_vs_adc_tensors_test, dtype=torch.float)
 
-    patient_vs_hbv_tensors_train = torch.tensor(patient_vs_hbv_tensors_train, dtype=torch.float)
+    #patient_vs_hbv_tensors_train = torch.tensor(patient_vs_hbv_tensors_train, dtype=torch.float)
     patient_vs_hbv_tensors_validation = torch.tensor(patient_vs_hbv_tensors_validation, dtype=torch.float)
     patient_vs_hbv_tensors_test = torch.tensor(patient_vs_hbv_tensors_test, dtype=torch.float)
 
-    patient_vs_t2w_tensors_train = torch.tensor(patient_vs_t2w_tensors_train, dtype=torch.float)
+    #patient_vs_t2w_tensors_train = torch.tensor(patient_vs_t2w_tensors_train, dtype=torch.float)
     patient_vs_t2w_tensors_validation = torch.tensor(patient_vs_t2w_tensors_validation, dtype=torch.float)
     patient_vs_t2w_tensors_test = torch.tensor(patient_vs_t2w_tensors_test, dtype=torch.float)
 
-    patient_vs_prediction_tensors_train = torch.tensor(patient_vs_prediction_tensors_train, dtype=torch.float)
+    #patient_vs_prediction_tensors_train = torch.tensor(patient_vs_prediction_tensors_train, dtype=torch.float)
     patient_vs_prediction_tensors_validation = torch.tensor(patient_vs_prediction_tensors_validation, dtype=torch.float)
     patient_vs_prediction_tensors_test = torch.tensor(patient_vs_prediction_tensors_test, dtype=torch.float)
 
-    training_set = [patient_vs_adc_tensors_train, patient_vs_hbv_tensors_train, patient_vs_t2w_tensors_train, patient_vs_prediction_tensors_train]
+
+    #patient_vs_weight_tensors_train = torch.tensor(patient_vs_weight_tensors_train, dtype=torch.float)
+    #patient_vs_weight_tensors_validation = torch.tensor(patient_vs_weight_tensors_validation, dtype=torch.float)
+
+
+    training_set = [patient_vs_adc_tensors_train, patient_vs_hbv_tensors_train, patient_vs_t2w_tensors_train, patient_vs_prediction_tensors_train, patient_vs_weight_tensors_train]
     testing_set = [patient_vs_adc_tensors_test, patient_vs_hbv_tensors_test, patient_vs_t2w_tensors_test, patient_vs_prediction_tensors_test]
     validation_set = [patient_vs_adc_tensors_validation, patient_vs_hbv_tensors_validation, patient_vs_t2w_tensors_validation, patient_vs_prediction_tensors_validation]
     ############################################################################################
 
     return training_set, validation_set, testing_set, patient_order
+
+def shuffle_3Ddata(
+    training_set
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    This function takes input the training data in tensor format, shuffles it and then 
+    separates into multiple branches (adc, hbv, t2w, target) to be passed through the multi-modal deep learning model.  
+    Args:
+        training_set (list):
+        This is a list of adc, hbv, and t2w feature tensors, and corresponding target value tensors. 
+        Each of adc, hbv, and t2w tensors has dimension [patient_count, slide_count, slide_height, slide_width].
+        Target value tensor has dimension [patient_count, 1]. 
+    Returns:
+        Separate tensors of ADC, HBV, T2W, and Target values 
+
+    """
+    patient_vs_adc_train = training_set[0]
+    patient_vs_hbv_train = training_set[1]
+    patient_vs_t2w_train = training_set[2]
+    patient_vs_prediction_train = training_set[3]
+    patient_vs_weight_train = training_set[4]
+
+    # Generate random permutation of row indices
+    sample_count = patient_vs_adc_train.shape[0]
+    #prediction_column = training_set.size(1)-1
+    row_perm = torch.randperm(sample_count)
+
+    # Shuffle the rows using advanced indexing # 
+    patient_vs_adc_train = patient_vs_adc_train[row_perm]
+    patient_vs_hbv_train = patient_vs_hbv_train[row_perm] 
+    patient_vs_t2w_train = patient_vs_t2w_train[row_perm]
+    patient_vs_prediction_train = patient_vs_prediction_train[row_perm]
+    patient_vs_weight_train = patient_vs_weight_train[row_perm]
+
+    # Now augment: Org, random Gaussian Noise, random rotation - 3 times
+    training_data_count = sample_count*3
+    patient_vs_adc_tensors_train = np.zeros((training_data_count, 1, patient_vs_adc_train[0].shape[1], patient_vs_adc_train[0].shape[2], patient_vs_adc_train[0].shape[3]))
+    patient_vs_hbv_tensors_train = np.zeros((training_data_count, 1, patient_vs_hbv_train[0].shape[1], patient_vs_hbv_train[0].shape[2], patient_vs_hbv_train[0].shape[3]))
+    patient_vs_t2w_tensors_train = np.zeros((training_data_count, 1, patient_vs_t2w_train[0].shape[1], patient_vs_t2w_train[0].shape[2], patient_vs_t2w_train[0].shape[3]))
+    patient_vs_prediction_tensors_train = np.zeros((training_data_count, 1))
+    patient_vs_weight_tensors_train = np.zeros((training_data_count, 1))
+
+    i_train = 0
+    for indx in range (0, sample_count):
+
+        image_array_adc = patient_vs_adc_train[indx]
+        image_array_hbv = patient_vs_hbv_train[indx]
+        image_array_t2w = patient_vs_t2w_train[indx]
+
+        prediction = patient_vs_prediction_train[indx]
+        sample_weight = patient_vs_weight_train[indx]
+
+        ############# org ##############
+        patient_vs_adc_tensors_train[i_train][0, 0:image_array_adc.shape[1],0:image_array_adc.shape[2],0:image_array_adc.shape[3]] = image_array_adc
+        patient_vs_hbv_tensors_train[i_train][0, 0:image_array_hbv.shape[1],0:image_array_hbv.shape[2],0:image_array_hbv.shape[3]] = image_array_hbv
+        patient_vs_t2w_tensors_train[i_train][0, 0:image_array_t2w.shape[1],0:image_array_t2w.shape[2],0:image_array_t2w.shape[3]] = image_array_t2w
+        patient_vs_prediction_tensors_train[i_train][0] = prediction
+        patient_vs_weight_tensors_train[i_train][0] = sample_weight
+        i_train = i_train + 1
+
+        ######### rotate along HxW plane ###############
+        angle = np.random.randint(low=-15, high=+15)
+        image_array_adc_temp = rotate(image_array_adc, angle=angle, axes=(2, 3), reshape=False)
+        image_array_hbv_temp = rotate(image_array_hbv, angle=angle, axes=(2, 3), reshape=False)
+        image_array_t2w_temp = rotate(image_array_t2w, angle=angle, axes=(2, 3), reshape=False)
+
+        patient_vs_adc_tensors_train[i_train][0, 0:image_array_adc.shape[1],0:image_array_adc.shape[2],0:image_array_adc.shape[3]] = image_array_adc_temp
+        patient_vs_hbv_tensors_train[i_train][0, 0:image_array_hbv.shape[1],0:image_array_hbv.shape[2],0:image_array_hbv.shape[3]] = image_array_hbv_temp
+        patient_vs_t2w_tensors_train[i_train][0, 0:image_array_t2w.shape[1],0:image_array_t2w.shape[2],0:image_array_t2w.shape[3]] = image_array_t2w_temp
+        patient_vs_prediction_tensors_train[i_train][0] = prediction
+        patient_vs_weight_tensors_train[i_train][0] = sample_weight
+        i_train = i_train + 1
+
+        # gaussian Noise ################
+        image_array_adc_temp= image_array_adc + np.random.normal(0, 0.01, image_array_adc.shape)
+        image_array_hbv_temp = image_array_hbv + np.random.normal(0, 0.01, image_array_hbv.shape)
+        image_array_t2w_temp = image_array_t2w + np.random.normal(0, 0.01, image_array_t2w.shape)
+
+        patient_vs_adc_tensors_train[i_train][0, 0:image_array_adc.shape[1],0:image_array_adc.shape[2],0:image_array_adc.shape[3]] = scale_image(image_array_adc_temp)
+        patient_vs_hbv_tensors_train[i_train][0, 0:image_array_hbv.shape[1],0:image_array_hbv.shape[2],0:image_array_hbv.shape[3]] = scale_image(image_array_hbv_temp)
+        patient_vs_t2w_tensors_train[i_train][0, 0:image_array_t2w.shape[1],0:image_array_t2w.shape[2],0:image_array_t2w.shape[3]] = scale_image(image_array_t2w_temp)
+        patient_vs_prediction_tensors_train[i_train][0] = prediction
+        patient_vs_weight_tensors_train[i_train][0] = sample_weight
+        i_train = i_train + 1
+
+
+    # now convert to tensor
+
+    patient_vs_adc_tensors_train = torch.tensor(patient_vs_adc_tensors_train, dtype=torch.float)
+    patient_vs_hbv_tensors_train = torch.tensor(patient_vs_hbv_tensors_train, dtype=torch.float)
+    patient_vs_t2w_tensors_train = torch.tensor(patient_vs_t2w_tensors_train, dtype=torch.float)
+    patient_vs_prediction_tensors_train = torch.tensor(patient_vs_prediction_tensors_train, dtype=torch.float)
+    patient_vs_weight_tensors_train = torch.tensor(patient_vs_weight_tensors_train, dtype=torch.float)
+
+
+    return patient_vs_adc_tensors_train, patient_vs_hbv_tensors_train, patient_vs_t2w_tensors_train, patient_vs_prediction_tensors_train, patient_vs_weight_tensors_train
 
 
 def data_to_3Dtensor(
@@ -226,8 +456,10 @@ def data_to_3Dtensor(
     metadata_t2w,
     patient_vs_modality_vs_image, 
     patient_vs_timeBCR,
+    patient_vs_weight,
     test_fold_patient_list,
-    validation_percent = 10
+    validation_fold_patient_list,
+    validation_percent = -1
     ):
     """
     This model takes the training data in raw format and convert them to tensors.
@@ -251,85 +483,119 @@ def data_to_3Dtensor(
     ####### initialze placeholder arrays that will be converter to tensor #######
 
     testing_data_count = len(test_fold_patient_list)
-    training_data_count = len(list(patient_vs_modality_vs_image.keys())) - testing_data_count
+    validation_data_count = len(validation_fold_patient_list)
+    if len(validation_fold_patient_list)!=0:
+        training_data_count = len(list(patient_vs_modality_vs_image.keys())) - testing_data_count - validation_data_count
+    else:
+        training_data_count = len(list(patient_vs_modality_vs_image.keys())) - testing_data_count
+
 
     patient_vs_adc_tensors_train = np.zeros((training_data_count, 1, metadata_adc[0], metadata_adc[1], metadata_adc[2]))
     patient_vs_adc_tensors_test = np.zeros((testing_data_count, 1, metadata_adc[0], metadata_adc[1], metadata_adc[2]))
+    patient_vs_adc_tensors_validation = np.zeros((validation_data_count, 1, metadata_adc[0], metadata_adc[1], metadata_adc[2]))
+
 
     patient_vs_hbv_tensors_train = np.zeros((training_data_count, 1, metadata_hbv[0], metadata_hbv[1], metadata_hbv[2]))
     patient_vs_hbv_tensors_test = np.zeros((testing_data_count, 1, metadata_hbv[0], metadata_hbv[1], metadata_hbv[2]))
+    patient_vs_hbv_tensors_validation = np.zeros((validation_data_count, 1, metadata_hbv[0], metadata_hbv[1], metadata_hbv[2]))
 
     patient_vs_t2w_tensors_train = np.zeros((training_data_count, 1, metadata_t2w[0], metadata_t2w[1], metadata_t2w[2]))
     patient_vs_t2w_tensors_test = np.zeros((testing_data_count, 1, metadata_t2w[0], metadata_t2w[1], metadata_t2w[2]))
+    patient_vs_t2w_tensors_validation = np.zeros((validation_data_count, 1, metadata_t2w[0], metadata_t2w[1], metadata_t2w[2]))
 
     patient_vs_prediction_tensors_train = np.zeros((training_data_count, 1))
     patient_vs_prediction_tensors_test = np.zeros((testing_data_count,1))
+    patient_vs_prediction_tensors_validation = np.zeros((validation_data_count,1))
 
+    patient_vs_weight_tensors_train = np.zeros((training_data_count, 1))
 
     i_test = 0
     i_train = 0
+    i_val = 0
     patient_order = []
     for patient_id in patient_vs_modality_vs_image:
 
         image_array_adc = patient_vs_modality_vs_image[patient_id]['adc']
-        image_array_adc = scale_image(image_array_adc)
-
         image_array_hbv = patient_vs_modality_vs_image[patient_id]['hbv']
-        image_array_hbv = scale_image(image_array_hbv)
-
         image_array_t2w = patient_vs_modality_vs_image[patient_id]['t2w']
-        image_array_t2w = scale_image(image_array_t2w)
 
         prediction = patient_vs_timeBCR[patient_id]
-
+        sample_weight = patient_vs_weight[patient_id]
 
         if int(patient_id) in test_fold_patient_list:
-            patient_vs_adc_tensors_test[i_test][0, 0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = image_array_adc
-            patient_vs_hbv_tensors_test[i_test][0, 0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = image_array_hbv
-            patient_vs_t2w_tensors_test[i_test][0, 0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = image_array_t2w
+            patient_vs_adc_tensors_test[i_test][0, 0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = scale_image(image_array_adc)
+            patient_vs_hbv_tensors_test[i_test][0, 0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = scale_image(image_array_hbv)
+            patient_vs_t2w_tensors_test[i_test][0, 0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = scale_image(image_array_t2w)
             patient_vs_prediction_tensors_test[i_test][0] = prediction
             i_test = i_test + 1
             patient_order.append(patient_id)
+
+        elif int(patient_id) in validation_fold_patient_list:
+            patient_vs_adc_tensors_validation[i_val][0, 0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = scale_image(image_array_adc)
+            patient_vs_hbv_tensors_validation[i_val][0, 0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = scale_image(image_array_hbv)
+            patient_vs_t2w_tensors_validation[i_val][0, 0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = scale_image(image_array_t2w)
+            patient_vs_prediction_tensors_validation[i_val][0] = prediction
+            i_val = i_val + 1
+
         else:
-            patient_vs_adc_tensors_train[i_train][0, 0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = image_array_adc
-            patient_vs_hbv_tensors_train[i_train][0, 0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = image_array_hbv
-            patient_vs_t2w_tensors_train[i_train][0, 0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = image_array_t2w
+            patient_vs_adc_tensors_train[i_train][0, 0:image_array_adc.shape[0],0:image_array_adc.shape[1],0:image_array_adc.shape[2]] = scale_image(image_array_adc)
+            patient_vs_hbv_tensors_train[i_train][0, 0:image_array_hbv.shape[0],0:image_array_hbv.shape[1],0:image_array_hbv.shape[2]] = scale_image(image_array_hbv)
+            patient_vs_t2w_tensors_train[i_train][0, 0:image_array_t2w.shape[0],0:image_array_t2w.shape[1],0:image_array_t2w.shape[2]] = scale_image(image_array_t2w)
             patient_vs_prediction_tensors_train[i_train][0] = prediction
+            patient_vs_weight_tensors_train[i_train][0] = sample_weight
             i_train = i_train + 1
 
-
     # take 20% of train for validation ########################################################
-    validation_count = (training_data_count*validation_percent) // 100
-    patient_vs_adc_tensors_validation = patient_vs_adc_tensors_train[0:validation_count]
-    patient_vs_adc_tensors_train = patient_vs_adc_tensors_train[validation_count:]
     
-    patient_vs_hbv_tensors_validation = patient_vs_hbv_tensors_train[0:validation_count]
-    patient_vs_hbv_tensors_train = patient_vs_hbv_tensors_train[validation_count:]
+    if validation_percent != -1:
+        sample_count = training_data_count
+        row_perm = torch.randperm(sample_count)
+        patient_vs_adc_tensors_train = patient_vs_adc_tensors_train[row_perm]
+        patient_vs_hbv_tensors_train = patient_vs_hbv_tensors_train[row_perm]
+        patient_vs_t2w_tensors_train = patient_vs_t2w_tensors_train[row_perm]
+        patient_vs_prediction_tensors_train = patient_vs_prediction_tensors_train[row_perm]
+        patient_vs_weight_tensors_train = patient_vs_weight_tensors_train[row_perm]
+        
+        validation_count = (training_data_count*validation_percent) // 100
+        patient_vs_adc_tensors_validation = patient_vs_adc_tensors_train[0:validation_count]
+        patient_vs_adc_tensors_train = patient_vs_adc_tensors_train[validation_count:]
+        
+        patient_vs_hbv_tensors_validation = patient_vs_hbv_tensors_train[0:validation_count]
+        patient_vs_hbv_tensors_train = patient_vs_hbv_tensors_train[validation_count:]
 
-    patient_vs_t2w_tensors_validation = patient_vs_t2w_tensors_train[0:validation_count]
-    patient_vs_t2w_tensors_train = patient_vs_t2w_tensors_train[validation_count:]
+        patient_vs_t2w_tensors_validation = patient_vs_t2w_tensors_train[0:validation_count]
+        patient_vs_t2w_tensors_train = patient_vs_t2w_tensors_train[validation_count:]
 
-    patient_vs_prediction_tensors_validation = patient_vs_prediction_tensors_train[0:validation_count]
-    patient_vs_prediction_tensors_train = patient_vs_prediction_tensors_train[validation_count:]
+        patient_vs_prediction_tensors_validation = patient_vs_prediction_tensors_train[0:validation_count]
+        patient_vs_prediction_tensors_train = patient_vs_prediction_tensors_train[validation_count:]
+
+        #patient_vs_weight_tensors_validation = patient_vs_weight_tensors_train[0:validation_count]
+        patient_vs_weight_tensors_train = patient_vs_weight_tensors_train[validation_count:]        
+
     ############################################################################################
     # convert to tensor
-    patient_vs_adc_tensors_train = torch.tensor(patient_vs_adc_tensors_train, dtype=torch.float)
+    #patient_vs_adc_tensors_train = torch.tensor(patient_vs_adc_tensors_train, dtype=torch.float)
     patient_vs_adc_tensors_validation = torch.tensor(patient_vs_adc_tensors_validation, dtype=torch.float)
     patient_vs_adc_tensors_test = torch.tensor(patient_vs_adc_tensors_test, dtype=torch.float)
 
-    patient_vs_hbv_tensors_train = torch.tensor(patient_vs_hbv_tensors_train, dtype=torch.float)
+    #patient_vs_hbv_tensors_train = torch.tensor(patient_vs_hbv_tensors_train, dtype=torch.float)
     patient_vs_hbv_tensors_validation = torch.tensor(patient_vs_hbv_tensors_validation, dtype=torch.float)
     patient_vs_hbv_tensors_test = torch.tensor(patient_vs_hbv_tensors_test, dtype=torch.float)
 
-    patient_vs_t2w_tensors_train = torch.tensor(patient_vs_t2w_tensors_train, dtype=torch.float)
+    #patient_vs_t2w_tensors_train = torch.tensor(patient_vs_t2w_tensors_train, dtype=torch.float)
     patient_vs_t2w_tensors_validation = torch.tensor(patient_vs_t2w_tensors_validation, dtype=torch.float)
     patient_vs_t2w_tensors_test = torch.tensor(patient_vs_t2w_tensors_test, dtype=torch.float)
 
-    patient_vs_prediction_tensors_train = torch.tensor(patient_vs_prediction_tensors_train, dtype=torch.float)
+    #patient_vs_prediction_tensors_train = torch.tensor(patient_vs_prediction_tensors_train, dtype=torch.float)
     patient_vs_prediction_tensors_validation = torch.tensor(patient_vs_prediction_tensors_validation, dtype=torch.float)
     patient_vs_prediction_tensors_test = torch.tensor(patient_vs_prediction_tensors_test, dtype=torch.float)
 
-    training_set = [patient_vs_adc_tensors_train, patient_vs_hbv_tensors_train, patient_vs_t2w_tensors_train, patient_vs_prediction_tensors_train]
+
+    #patient_vs_weight_tensors_train = torch.tensor(patient_vs_weight_tensors_train, dtype=torch.float)
+    #patient_vs_weight_tensors_validation = torch.tensor(patient_vs_weight_tensors_validation, dtype=torch.float)
+
+
+    training_set = [patient_vs_adc_tensors_train, patient_vs_hbv_tensors_train, patient_vs_t2w_tensors_train, patient_vs_prediction_tensors_train, patient_vs_weight_tensors_train]
     testing_set = [patient_vs_adc_tensors_test, patient_vs_hbv_tensors_test, patient_vs_t2w_tensors_test, patient_vs_prediction_tensors_test]
     validation_set = [patient_vs_adc_tensors_validation, patient_vs_hbv_tensors_validation, patient_vs_t2w_tensors_validation, patient_vs_prediction_tensors_validation]
     ############################################################################################
