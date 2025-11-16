@@ -2,11 +2,28 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-from multiFusion_train_util import shuffle_data #, data_to_tensor
+from multiFusion_train_util import shuffle_data, shuffle_3Ddata #, data_to_tensor
 from lifelines.utils import concordance_index
 import wandb
 from collections import defaultdict 
 import pandas as pd
+import gc
+class WeightedMSELoss(nn.Module):
+    def __init__(self, reduction='mean'):
+        super().__init__()
+        self.reduction = reduction
+
+    def forward(self, input, target, weight=None):
+        loss = (input - target) ** 2
+        if weight is not None:
+            loss = loss * weight
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+
 
 class multiFusion(torch.nn.Module):
     def __init__(self, 
@@ -23,14 +40,15 @@ class multiFusion(torch.nn.Module):
                 t2w_H: int,
                 t2w_W: int,
 
-                filter_count_layer1:int = 2, 
-                filter_count_layer2:int = 4,  
+                filter_count_layer1:int = 4, #2,
+                filter_count_layer2:int = 8, #4,
 
                 kernel_size1:int = 4,
                 kernel_size2:int = 2,
 
-                hidden_size_fusion_layer:int = 128,
-                hidden_size_prediction_layer:int = 64
+                hidden_size_fusion_layer:int =32,
+                hidden_size_prediction_layer:int = 16,
+                hidden_size_prediction_layer2:int = 8
                 ):
         """
         This will initialize the deep learning model that takes input images from three modality, 
@@ -69,6 +87,7 @@ class multiFusion(torch.nn.Module):
             nn.Conv2d(in_channels = channel_count_adc, out_channels = filter_count_layer1, kernel_size = kernel_size1, padding='same'),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
+
             nn.Conv2d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size = kernel_size2, padding='same'),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
@@ -115,6 +134,12 @@ class multiFusion(torch.nn.Module):
         '''
 
         # calculate the flatten size for multi modal branches before infusion
+        #flatten_size_adc = filter_count_layer1 * (adc_H/2) * (adc_W/2) 
+        #flatten_size_hbv = filter_count_layer1 * (hbv_H/2) * (hbv_W/2) 
+        #flatten_size_t2w = filter_count_layer1 * (t2w_H/2) * (t2w_W/2) 
+
+
+
         flatten_size_adc = filter_count_layer2 * (adc_H/2)/2 * (adc_W/2)/2 
         flatten_size_hbv = filter_count_layer2 * (hbv_H/2)/2 * (hbv_W/2)/2 
         flatten_size_t2w = filter_count_layer2 * (t2w_H/2)/2 * (t2w_W/2)/2 
@@ -124,15 +149,21 @@ class multiFusion(torch.nn.Module):
         # fuse all and pass through MLP classification layer 
         self.fusionNpredict_layer = nn.Sequential(
             nn.Linear(input_size_fusion, hidden_size_fusion_layer), 
-            # use output_size_fusion*5 if clinical feature is used
+            nn.ReLU(),
             nn.BatchNorm1d(hidden_size_fusion_layer),
-            nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.5),            
+
             nn.Linear(hidden_size_fusion_layer, hidden_size_prediction_layer),
-            nn.BatchNorm1d(hidden_size_prediction_layer),
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(hidden_size_prediction_layer, 1)
+            nn.BatchNorm1d(hidden_size_prediction_layer),
+            nn.Dropout(0.5),            
+            
+            nn.Linear(hidden_size_prediction_layer, hidden_size_prediction_layer2),
+            nn.ReLU(),
+            nn.BatchNorm1d(hidden_size_prediction_layer2),
+            nn.Dropout(0.5), 
+            
+            nn.Linear(hidden_size_prediction_layer2, 1)
             # no sigmoid or other activation since it is a regression problem
         )
 
@@ -159,15 +190,16 @@ class multiFusion(torch.nn.Module):
         concat_emb = torch.cat((adc_emb, hbv_emb, t2w_emb), dim=1)
 
         #concat_emb = torch.cat((adc_emb, hbv_emb, t2w_emb, clinical_emb), dim=1)
+        #recur_prediction = self.fusionNpredict_layer(adc_emb)
         recur_prediction = self.fusionNpredict_layer(concat_emb)
         return recur_prediction
 
 
 class multiFusion3D(torch.nn.Module):
     def __init__(self, 
-                adc_D: int,
-                hbv_D: int,
-                t2w_D: int,
+                adc_D:int,
+                hbv_D:int,
+                t2w_D:int,
 
                 adc_H: int,
                 adc_W: int,
@@ -184,8 +216,8 @@ class multiFusion3D(torch.nn.Module):
                 kernel_size1:int = 4,
                 kernel_size2:int = 2,
 
-                hidden_size_fusion_layer:int = 128,
-                hidden_size_prediction_layer:int = 64
+                hidden_size_fusion_layer:int = 32,
+                hidden_size_prediction_layer:int = 16
                 ):
         """
         This will initialize the deep learning model that takes input images from three modality, 
@@ -194,9 +226,9 @@ class multiFusion3D(torch.nn.Module):
         a regression problem. 
         
         Args:
-            adc_D (int): This is the incoming channel/slide count in adc scans which is treated as depth,
-            hbv_D (int): This is the incoming channel/slide count in hbv scans which is treated as depth,
-            t2w_D (int): This is the incoming channel/slide count in t2w scans which is treated as depth,
+            channel_count_adc (int): This is the incoming channel/slide count in adc scans,
+            channel_count_hbv (int): This is the incoming channel/slide count in hbv scans,
+            channel_count_t2w (int): This is the incoming channel/slide count in t2w scans,
 
             adc_H (int): Height of adc scans,
             adc_W (int): Width of adc scans,
@@ -224,6 +256,7 @@ class multiFusion3D(torch.nn.Module):
             nn.Conv3d(in_channels = 1, out_channels = filter_count_layer1, kernel_size = kernel_size1, padding='same'),
             nn.ReLU(),
             nn.MaxPool3d(kernel_size=2, stride=2),
+            
             nn.Conv3d(in_channels = filter_count_layer1, out_channels = filter_count_layer2, kernel_size = kernel_size2, padding='same'),
             nn.ReLU(),
             nn.MaxPool3d(kernel_size=2, stride=2),
@@ -270,23 +303,36 @@ class multiFusion3D(torch.nn.Module):
         '''
 
         # calculate the flatten size for multi modal branches before infusion
+        #flatten_size_adc = filter_count_layer1 * np.floor(adc_D/2) *(adc_H/2) * (adc_W/2) 
+        #flatten_size_hbv = filter_count_layer1 * np.floor(hbv_D/2) * (hbv_H/2) * (hbv_W/2) 
+        #flatten_size_t2w = filter_count_layer1 * np.floor(t2w_D/2) * (t2w_H/2) * (t2w_W/2) 
+
+        # calculate the flatten size for multi modal branches before infusion
         flatten_size_adc = filter_count_layer2 * np.floor((np.floor(adc_D/2))/2) *(adc_H/2)/2 * (adc_W/2)/2 
         flatten_size_hbv = filter_count_layer2 * np.floor((np.floor(hbv_D/2))/2) * (hbv_H/2)/2 * (hbv_W/2)/2 
         flatten_size_t2w = filter_count_layer2 * np.floor((np.floor(t2w_D/2))/2) * (t2w_H/2)/2 * (t2w_W/2)/2 
+
+
 
 
         input_size_fusion = int(flatten_size_adc + flatten_size_hbv + flatten_size_t2w) 
         # fuse all and pass through MLP classification layer 
         self.fusionNpredict_layer = nn.Sequential(
             nn.Linear(input_size_fusion, hidden_size_fusion_layer), 
-            # use output_size_fusion*5 if clinical feature is used
+            nn.ReLU(),
             nn.BatchNorm1d(hidden_size_fusion_layer),
-            nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.5),            
+
             nn.Linear(hidden_size_fusion_layer, hidden_size_prediction_layer),
-            nn.BatchNorm1d(hidden_size_prediction_layer),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.BatchNorm1d(hidden_size_prediction_layer),
+            nn.Dropout(0.5),            
+            
+            #nn.Linear(hidden_size_prediction_layer, hidden_size_prediction_layer2),
+            #nn.ReLU(),
+            #nn.BatchNorm1d(hidden_size_prediction_layer2),
+            #nn.Dropout(0.5), 
+            
             nn.Linear(hidden_size_prediction_layer, 1)
             # no sigmoid or other activation since it is a regression problem
         )
@@ -398,21 +444,37 @@ def train_multiFusion(
     if print_model_flag == 1:
         print(model_multiFusion)
     # set the loss function
-    loss_function = nn.MSELoss()
 
+    #
+    if args.weighted_MSE==1:
+        loss_function = WeightedMSELoss()
+    else:
+        loss_function = nn.MSELoss()
     # set optimizer
     optimizer = torch.optim.Adam(model_multiFusion.parameters(), lr=learning_rate)
-    epoch_interval = 20 # CHECK
+    epoch_interval = args.epoch_interval # CHECK
     #### for plotting loss curve ########
     loss_curve = defaultdict(list)
 
+
+   
+    #### for plotting loss curve ########
+    loss_curve_onThefly= np.zeros((epoch//5+1, 4))
+    loss_curve_counter = 0
     ######################################
     total_training_samples = training_set[0].shape[0]
     total_batch = total_training_samples//batch_size
     min_loss = 100000 # just a big number to initialize
+    max_cindex = 0
     for epoch_indx in range (0, epoch):
+        gc.collect()
         # shuffle the training set and split into multiple branches
-        training_adc_ftr, training_hbv_ftr, training_t2w_ftr, training_target = shuffle_data(training_set)        
+        if epoch_indx%epoch_interval == 0:
+            if args.conv_dimension == 2:
+                training_adc_ftr, training_hbv_ftr, training_t2w_ftr, training_target, training_weight = shuffle_data(training_set)        
+            else:
+                training_adc_ftr, training_hbv_ftr, training_t2w_ftr, training_target, training_weight = shuffle_3Ddata(training_set)
+
         model_multiFusion.train() # training mode
         total_loss = 0
         for batch_idx in range(0, total_batch):
@@ -422,10 +484,8 @@ def train_multiFusion(
             batch_hbv_ftr = training_hbv_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size].to(device)
             batch_t2w_ftr = training_t2w_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size].to(device)
 
-            #batch_adc_ftr = training_adc_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
-            #batch_hbv_ftr = training_hbv_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
-            #batch_t2w_ftr = training_t2w_ftr[batch_idx*batch_size: (batch_idx+1)*batch_size, :, :, :].to(device)
             batch_target = training_target[batch_idx*batch_size: (batch_idx+1)*batch_size, :].to(device)
+            batch_weight = training_weight[batch_idx*batch_size: (batch_idx+1)*batch_size, :].to(device)
             # run the model and get prediction
             batch_prediction = model_multiFusion(batch_adc_ftr, batch_hbv_ftr, batch_t2w_ftr)
 
@@ -439,18 +499,36 @@ def train_multiFusion(
             '''
             #####################################################################
             # get the loss and backpropagate 
-            loss = loss_function(batch_prediction.flatten(), batch_target.flatten())
+            #loss = loss_function(batch_prediction.flatten(), batch_target.flatten())
+            if args.weighted_MSE==1:
+                loss = loss_function(batch_prediction.flatten(), batch_target.flatten(), weight=batch_weight.flatten())
+            else:
+                loss = loss_function(batch_prediction.flatten(), batch_target.flatten())
+                
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
+
+
+        batch_adc_ftr = training_adc_ftr.to(device)
+        batch_hbv_ftr = training_hbv_ftr.to(device)
+        batch_t2w_ftr = training_t2w_ftr.to(device)
+        batch_target = training_target.to(device)
+        # run the model and get prediction
+        model_multiFusion.eval()
+        batch_prediction = model_multiFusion(batch_adc_ftr, batch_hbv_ftr, batch_t2w_ftr)
+        batch_prediction = list(batch_prediction.flatten().cpu().detach().numpy())
+        batch_target = list(batch_target.flatten().cpu().detach().numpy())
+        train_Cindex = concordance_index(batch_target, batch_prediction)
+
         
         # all batches are done     
         avg_loss = total_loss/total_batch
         ## if min loss found, log it ##
-        if epoch_indx%epoch_interval == 0:
+        #if epoch_indx%epoch_interval == 0:
+        if epoch_indx%5 == 0:
             #print('Epoch %d/%d, Training loss: %g'%(epoch_indx, epoch, avg_loss))            
             # run validation
-            # CHECK: if you use dropout layer, you might need to set some flag during inference step 
             validation_adc_ftr = validation_set[0]
             validation_hbv_ftr = validation_set[1]
             validation_t2w_ftr = validation_set[2]
@@ -472,15 +550,17 @@ def train_multiFusion(
             if epoch_indx==0:
                 min_loss = validation_loss
                 max_cindex = validation_Cindex
+            ###################
 
-            print('Epoch %d/%d, Training loss: %g, val loss: %g, c-index: %g'%(epoch_indx, epoch, avg_loss, validation_loss, validation_Cindex))
+
+            print('Epoch %d/%d, Training loss: %g, train c-index: %g, val loss: %g, c-index: %g'%(epoch_indx, epoch, avg_loss, train_Cindex, validation_loss, validation_Cindex))
             wandb.log({
                 "epoch": epoch_indx,
                 "train_loss": avg_loss,
                 "val_loss": validation_loss,
                 "val_c_index": validation_Cindex
             })
-            
+            '''
             if validation_loss <= min_loss:
                 min_loss = validation_loss
                 # state save
@@ -488,13 +568,14 @@ def train_multiFusion(
                 print('*** min loss found! %g ***'%validation_loss) 
 
             '''
-            if validation_Cindex > max_cindex:
+            
+            if validation_Cindex >= max_cindex:
                 max_cindex = validation_Cindex
                 # state save
                 torch.save(model_multiFusion, args.model_name)  
                 print('*** max c-index found! %g ***'%validation_Cindex)              
             
-            '''
+            
 
 
             #########
@@ -508,7 +589,21 @@ def train_multiFusion(
             loss_curve['validation_loss'].append(validation_loss)
             loss_curve['validation_C-index'].append(validation_Cindex)
 
-    #print(loss_curve)
+            ########################## optional ##############
+            loss_curve_onThefly[loss_curve_counter][0] = avg_loss
+            loss_curve_onThefly[loss_curve_counter][1] = validation_loss
+            loss_curve_onThefly[loss_curve_counter][2] = train_Cindex
+            loss_curve_onThefly[loss_curve_counter][3] = validation_Cindex
+
+            loss_curve_counter = loss_curve_counter + 1
+            logfile=open(args.output_path + '/' + wandb_project_name+'_fold'+ str(fold) +'_loss_curve_onThefly.csv', 'wb')
+            np.savetxt(logfile, loss_curve_onThefly, delimiter=',')
+            logfile.close()
+
+
+
+
+    print(loss_curve)
     loss_curve = pd.DataFrame(loss_curve)
     loss_curve.to_csv(args.output_path + '/' + wandb_project_name+'_fold'+ str(fold) +'_loss_curve.csv', index=False)
 
@@ -536,7 +631,7 @@ def test_multiFusion(model_name,
     # load the model
     model_multiFusion = torch.load(model_name)
     model_multiFusion.to(device)
-
+    
     # batch_size = len(dataset)//total_batch # no need as the test set is already small
 
     # get the multi branches of data
