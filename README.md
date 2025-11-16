@@ -35,7 +35,7 @@ If you quickly want to run the inference on the data (download [here](https://hu
 nohup python -u inference_and_report.py --training_data=Multimodal-Quiz/training_data_multiFusion.pkl --model_name=2DmultiFusion_test --conv_dimension=2 --wandb_project_name=2Dmultimodal_fusion' --fold_count=5 --kfold_info_file=Multimodal-Quiz/data_split_5fold.csv
 ```
 It should print the following output:
- [!here](https://github.com/anne04/multiFusion/blob/main/inference.png)
+ ![](https://github.com/anne04/multiFusion/blob/main/inference.png)
 
 
 ### Trained Models:
