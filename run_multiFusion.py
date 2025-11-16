@@ -24,16 +24,19 @@ if __name__ == "__main__":
     parser.add_argument( '--model_name', type=str, default="2DmultiFusion_test", help='Provide a model name')
     parser.add_argument('--wandb_project_name', type=str, default='2Dmultimodal_fusion', help='provide a project name for wandb log generation')
     parser.add_argument( '--fold_count', type=int, default=5, help='Provide the total fold')
+    parser.add_argument( '--fold_current', type=int, default=2, help='Provide the current fold')
     parser.add_argument( '--kfold_info_file', type=str, default="Multimodal-Quiz/data_split_5fold.csv", help='Provide the file name with k fold info')
     parser.add_argument( '--conv_dimension', type=int, default=2, help='Set to 2 or 3, for running 2D or 3D convolution operation respectively for feature extraction')
-    parser.add_argument( '--num_epoch', type=int, default=1000, help='Number of epochs or iterations for model training')
+    parser.add_argument( '--num_epoch', type=int, default=100, help='Number of epochs or iterations for model training')
     parser.add_argument( '--model_path', type=str, default='model/', help='Path to save the model state') # We do not need this for output generation  
     parser.add_argument( '--output_path', type=str, default='output/', help='Path to save the final performance reports and loss curves in csv format')
     #parser.add_argument( '--dropout', type=float, default=0.5, help='set a dropout value')
-    parser.add_argument( '--batch_size', type=int, default=10, help='Set the minibatch size for model training')
+    parser.add_argument( '--batch_size', type=int, default=20, help='Set the minibatch size for model training')
+    parser.add_argument( '--epoch_interval', type=int, default=20, help='Set the epoch_interval for validation loss checking')
     parser.add_argument( '--lr_rate', type=float, default=0.001, help='Set the learning rate for model training.')
     parser.add_argument( '--manual_seed', type=str, default='no', help='Set it to yes for reproducible result')
     parser.add_argument( '--seed', type=int, help='Set it to some integer for reproducible result')
+    parser.add_argument( '--weighted_MSE', type=int, default=1, help='Set it to run weighted MSE')
     #=========================== optional ======================================
     #parser.add_argument( '--load', type=int, default=0, help='Set 1 to load a previously saved model state')  
     #parser.add_argument( '--load_model_name', type=str, default='None' , help='Provide the model name that you want to reload')
@@ -62,7 +65,7 @@ if __name__ == "__main__":
     print(device)
     ##########################################################################################
     with gzip.open(args.training_data, 'rb') as fp:  
-        patient_vs_modality_vs_image, patient_vs_timeBCR = pickle.load(fp)
+        patient_vs_modality_vs_image, patient_vs_timeBCR, patient_vs_weight = pickle.load(fp)
 
     print('training data load done')
 
@@ -89,25 +92,32 @@ if __name__ == "__main__":
     print(metadata_t2w)
 
 
-    fold_patient_BCR_timeBCR_prediction = defaultdict(list)
-    fold_vs_c_index = defaultdict(list)
     print_model_flag = 1
     model_name = args.model_name 
+
+    fold_patient_BCR_timeBCR_prediction = defaultdict(list)
+    fold_vs_c_index = defaultdict(list)
     for k in range(0, args.fold_count):
-    #k=0
         print('*** Running fold k = %d ***'%k)
         test_fold_patient_list = fold_vs_test_patient_list[k]
+        validation_fold_patient_list = [] #fold_vs_test_patient_list[(k+1)%args.fold_count] # take another full fold as validation
         if args.conv_dimension == 2:
             training_tensor, validation_tensor, test_tensor, patient_order = data_to_tensor(metadata_adc, metadata_hbv, metadata_t2w,
                                                                             patient_vs_modality_vs_image, 
                                                                             patient_vs_timeBCR, 
-                                                                            test_fold_patient_list
+                                                                            patient_vs_weight,
+                                                                            test_fold_patient_list,
+                                                                            validation_fold_patient_list,
+                                                                            validation_percent = 25
                                                                             )
         elif args.conv_dimension == 3:
             training_tensor, validation_tensor, test_tensor, patient_order = data_to_3Dtensor(metadata_adc, metadata_hbv, metadata_t2w,
                                                                             patient_vs_modality_vs_image, 
                                                                             patient_vs_timeBCR, 
-                                                                            test_fold_patient_list
+                                                                            patient_vs_weight,
+                                                                            test_fold_patient_list,
+                                                                            validation_fold_patient_list,
+                                                                            validation_percent = 25
                                                                             )
 
         # train the model using train and validation set
@@ -117,7 +127,7 @@ if __name__ == "__main__":
         wandb_project_name = args.wandb_project_name 
         train_multiFusion(args, metadata_adc, metadata_hbv, metadata_t2w,
                             training_tensor, validation_tensor, epoch = args.num_epoch,
-                            batch_size = 10, learning_rate=args.lr_rate, print_model_flag = print_model_flag, 
+                            batch_size = args.batch_size, learning_rate=args.lr_rate, print_model_flag = print_model_flag, 
                             wandb_project_name=wandb_project_name, fold=k)
 
         print_model_flag = 0
@@ -137,16 +147,15 @@ if __name__ == "__main__":
         fold_vs_c_index['fold'].append(k)
         fold_vs_c_index['c-index'].append(c_index)
 
-
     ###########
     case_by_case_report = pd.DataFrame(fold_patient_BCR_timeBCR_prediction)
-    case_by_case_report.to_csv(args.output_path + '/'+ model_name +'_case_by_case_report.csv', index=False)
-    print('Saved at: ' + args.output_path + '/'+ model_name +'_case_by_case_report.csv')
+    case_by_case_report.to_csv(args.output_path + '/'+ model_name  + '_case_by_case_report.csv', index=False)
+    print('Saved at: ' + args.output_path + '/'+ model_name + '_case_by_case_report.csv')
 
     fold_vs_c_index_report = pd.DataFrame(fold_vs_c_index)
-    fold_vs_c_index_report.to_csv(args.output_path + '/'+ model_name +'_fold_vs_c_index_report.csv', index=False)
-    print('Saved at: ' + args.output_path + '/'+ model_name +'_fold_vs_c_index_report.csv')
+    fold_vs_c_index_report.to_csv(args.output_path + '/'+ model_name  + '_fold_vs_c_index_report.csv', index=False)
+    print('Saved at: ' + args.output_path + '/'+ model_name + '_fold_vs_c_index_report.csv')
 
     print('All done.')
 
-
+    
