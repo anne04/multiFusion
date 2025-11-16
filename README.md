@@ -30,7 +30,7 @@ This command will run the multimodal fusion model that takes input MRI scans (im
 3. The C-index for each fold and case-by-case study reports are generated in 'output/<model_name>_fold_vs_c_index_report.csv' and 'output/<model_name>_case_by_case_report.csv' respectively. 
 
 ### Inference and report generation:
-If you quickly want to run the inference on the data (download [here](https://huggingface.co/fatema04/multiFusion/tree/main)) and generate fold-wise reports then run the following command:
+If you quickly want to run the inference on the data (download ready-to-use data [here](https://huggingface.co/fatema04/multiFusion/tree/main)) and generate fold-wise reports then run the following command:
 ```
 nohup python -u inference_and_report.py --training_data=Multimodal-Quiz/training_data_multiFusion.pkl --model_name=2DmultiFusion_test --model_path=submission_package_models/ --conv_dimension=2 --wandb_project_name=2Dmultimodal_fusion' --fold_count=5 --kfold_info_file=Multimodal-Quiz/data_split_5fold.csv --output=submission_package_models/output/ 
 ```
